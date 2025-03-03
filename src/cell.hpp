@@ -8,7 +8,7 @@ class Cell
 {
     public:
         auto ToString() -> std::string;
-        Cell(Liquid liquid = Liquid::liquid1, int quanity = 0);
+        Cell(Liquid liquid = Liquid::none, int quanity = 0);
         bool selected;
         Liquid liquid;
         int quantity;

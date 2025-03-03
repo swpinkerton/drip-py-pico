@@ -7,6 +7,38 @@
 #include "grid.hpp"
 #include "state.cpp"
 
+void PrintWelcome() {
+    printf("\033c");
+    printf("__        __             _     _   \n");
+    printf("\\ \\      / /__  ___  ___| |__ | |_ \n");
+    printf(" \\ \\ /\\ / / _ \\/ _ \\/ __| '_ \\| __|\n");
+    printf("  \\ V  V /  __/  __/\\__ \\ | | | |_ \n");
+    printf("   \\_/\\_/ \\___|\\___||___/_| |_|\\__|\n");
+    printf("                            A       \n");
+    printf("                           A        \n");
+    printf("      AABBBUAA            AA        \n");
+    printf("     ABBBBBBBBb           ABA       \n");
+    printf("     BBBBBBBABA           9BBA      \n");
+    printf("     ABBBBA ABB            ABBBA    \n");
+    printf("            ABB             BBBBA   \n");
+    printf("            ABA             ABBBB   \n");
+    printf("           ABBA            ABBBBBA  \n");
+    printf("          ABBBA           dwBBBBA9  \n");
+    printf("         ABBBBA    AAAAS   9f99     \n");
+    printf("        ABBBBB   ABBBBBBBA          \n");
+    printf("      7ABBBBBA JBBBBBBBBBAw9        \n");
+    printf("     ABBBBBBA  ABBBBBBBBU99         \n");
+    printf("    ABBBBBBBO  98wFLw3999           \n");
+    printf("   ABBBBBBBA                        \n");
+    printf("  ABBBBBBBBA                        \n");
+    printf(" 9ABBBBBBBBA9                       \n");
+    printf(" 07BBBBBBBBv3990                    \n");
+    printf("  999el3309                         \n");
+    printf("                                    \n");
+    printf("Press Space Or Enter To Continue\n");
+    // fflush(stdout); // Flush the output buffer to ensure the message is displayed immediately
+}
+
 void output_grid(State* state, Grid* grid){
     printf("\033c");
     printf(grid->ToString().c_str());
@@ -33,19 +65,30 @@ void output_grid(State* state, Grid* grid){
 
 }
 
+void process_liquid(State* state, Grid* grid, char c) {
+    Liquid new_liquid = Liquid(c - '0');
+    if (grid->All()){
+        grid->ChangeAllLiquid(new_liquid);
+    }
+    if (grid->Row() != -1){
+        grid->ChangeRowLiquid(new_liquid);
+    }
+    if (grid->Column() != -1){
+        grid->ChangeColumnLiquid(new_liquid);
+    }
+    if (grid->All() == false && grid->Row() == -1 && grid->Column() == -1){
+        grid->ChangeLiquid(new_liquid);
+    }
+    *state = State::recieving_quantity;
+}
+
 
 void processKeyPress(State* state, Grid* grid) {
-    int c = getchar_timeout_us(0); // Non-blocking read
-
-    if (c == PICO_ERROR_TIMEOUT) {
-        return; // No input available
-    }
+    int c = getchar(); // Non-blocking read
 
     if (*state == State::root) {
-        printf("root\n");
         if (c == '\e') { // Escape sequence starts with '\e'
             if (getchar_timeout_us(0) == '[') { // Second part of sequence
-                printf("arrow\n");
                 switch (getchar_timeout_us(0)) { // Read the final character
                     case 'A':
                         grid->MoveCursor(0, -1);
@@ -61,38 +104,41 @@ void processKeyPress(State* state, Grid* grid) {
                         break;
                 }
             }
-        } else {
-            printf("else\n");
-
-            if (c == '\n' || c == '\r') {
-                printf("enter\n");
-                *state = State::recieving_liquid;
-            }
+        }
+        else if (c == '\n' || c == '\r') {
+            *state = State::recieving_liquid;
+        }
+        else if (c >= '0' && c <= '3') {
+            process_liquid(state, grid, c);
+        }
+    }
+    else if (*state == State::recieving_liquid) {
+        if (c >= '0' && c <= '3') {
+            process_liquid(state, grid, c);
+        }
+        else if (c == '\n' || c == '\r'){
+            *state = State::recieving_quantity;
         }
     }
     else if (*state == State::recieving_quantity) {
         if (c >= '0' && c <= '9') {
-            grid->ChangeQuantity(c - '0');
+            int new_quantity = int(c - '0');
+            if (grid->All()){
+                grid->ChangeAllQuantity(new_quantity);
+            }
+            if(grid->Row() != -1){
+                grid->ChangeRowQuantity(new_quantity);
+            }
+            if(grid->Column() != -1){
+                grid->ChangeColumnQuantity(new_quantity);
+            }
+            if (grid->All() == false && grid->Row() == -1 && grid->Column() == -1){
+                grid->ChangeQuantity(new_quantity);
+            }
             *state = State::root;
         }
         else if (c == '\n' || c == '\r') {
             *state = State::root;
-        }
-    }
-    else if (*state == State::recieving_liquid) {
-        if (c == '0') {
-            grid->ChangeLiquid(Liquid::none);
-        } else if (c == '1') {
-            grid->ChangeLiquid(Liquid::liquid1);
-        } else if (c == '2') {
-            grid->ChangeLiquid(Liquid::liquid2);
-        } else if (c == '3') {
-            grid->ChangeLiquid(Liquid::extract);
-        }
-
-        if ((c >= '0' && c <= '3') || (c == '\n' || c == '\r')) {
-            grid->ChangeQuantity(c - '0');
-            *state = State::recieving_quantity;
         }
     }
     output_grid(state, grid);
@@ -106,10 +152,15 @@ int main() {
     adc_select_input(0);
     // Cell cell = Cell(Liquid::liquid1, 0.0);
     Grid grid = Grid(3, 8);
-    grid.ChangeLiquid(Liquid::liquid1);
 
     State state = State::root;
 
+    char c = '0';
+    while (c != ' ' && c != '\n' && c != '\r'){
+        c = getchar();
+        sleep_ms(10);
+        PrintWelcome();
+    }
     output_grid(&state, &grid);
     while (1) {
         processKeyPress(&state, &grid);

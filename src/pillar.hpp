@@ -6,7 +6,7 @@
 class Pillar
 {
     public:
-        Pillar(std::string identifer = " ");
+        Pillar(std::string identifer = "X");
         auto ToString() -> std::string;
         bool selected;
 

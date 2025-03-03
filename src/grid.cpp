@@ -1,4 +1,5 @@
 #include "grid.hpp"
+#include <cstdio>
 #include <string>
 #include <sys/types.h>
 
@@ -16,27 +17,25 @@ Grid::Grid(int numrows, int numcols) {
     for (int r = 0; r < numrows; r++) {
         this->map[r] = new Cell[numcols];  // Allocate each row as an array of Cells
         for (int c = 0; c < numcols; c++) {
-            this->map[r][c] = Cell(Liquid::liquid1, 0.0);
+            this->map[r][c] = Cell(Liquid::none, 0);
         }
     }
     this->map[0][0].selected = true;
 
     // Allocate pillar rows
-    this->pillars = new Pillar*[numrows];
+    this->pillars = new Pillar*[numrows + 1]; // Allocate one extra row for column headers
 
     // Allocate columns
-    for (int r = 0; r < numrows; r++) {
-        if (r == 0){
-            this->pillars[r] = new Pillar[numcols];  // Allocate each row as an array of Cells
-            for (int c = 0; c < numcols; c++) {
-                this->pillars[r][c] = Pillar(" " + std::to_string(c ? ('A' + c + 1) : '*') + " ");
+    for (int r = 0; r <= numrows; r++) { // Loop from 0 to numrows inclusive
+        if (r == 0) {
+            this->pillars[r] = new Pillar[numcols + 1]; // Allocate one extra column for row headers
+            for (int c = 0; c < numcols + 1; c++) {
+                this->pillars[r][c] = Pillar(c == 0 ? "*" : std::string (1, char(64 +c))); // A = 65, B = 66, etc.
             }
-        }
-        else {
+        } else {
             this->pillars[r] = new Pillar[1];
-            this->pillars[r][0] = Pillar(" " + std::to_string(r) + " ");
+            this->pillars[r][0] = Pillar(std::to_string(r));
         }
-
     }
 }
 
@@ -49,7 +48,7 @@ Grid::~Grid() {
     delete[] this->map;
 
     // Free each row first
-    for (int r = 0; r < numrows; r++) {
+    for (int r = 0; r <= numrows; r++) { // Loop from 0 to numrows inclusive
         delete[] this->pillars[r];
     }
 
@@ -67,6 +66,61 @@ void Grid::ChangeLiquid(Liquid liquid){
 
 void Grid::ChangeQuantity(double quantity){
     this->map[this->yposition][this->xposition].quantity = quantity;
+}
+
+auto Grid::Row() -> int{
+    if (this->xposition == -1){
+        printf("row");
+        return this->yposition;
+    }
+    return -1;
+}
+auto Grid::Column() -> int{
+    if (this->yposition == -1){
+        printf("column");
+        return this->xposition;
+    }
+    return -1;
+}
+auto Grid::All() -> bool{
+    if (this->xposition == -1 && this->yposition == -1){
+        return true;
+    }
+    return false;
+}
+void Grid::ChangeRowLiquid(Liquid liquid){
+    for (int i =0; i < this->numcols; i++){
+        this->map[this->yposition][i].liquid = liquid;
+    }
+}
+void Grid::ChangeColumnLiquid(Liquid liquid){
+    for (int i =0; i < this->numrows; i++){
+        this->map[i][this->xposition].liquid = liquid;
+    }
+}
+void Grid::ChangeAllLiquid(Liquid liquid){
+    for (int i =0; i < this->numcols; i++){
+        for (int j =0; j < this->numrows; j++){
+            this->map[j][i].liquid = liquid;
+        }
+    }
+}
+void Grid::ChangeRowQuantity(double quantity){
+    for (int i =0; i < this->numcols; i++){
+        this->map[this->yposition][i].quantity = quantity;
+    }
+}
+void Grid::ChangeColumnQuantity(double quantity){
+    for (int i =0; i < this->numrows; i++){
+        this->map[i][this->xposition].quantity = quantity;
+    }
+}
+void Grid::ChangeAllQuantity(double quantity){
+    for (int i = 0; i < this->numcols; i++){
+        for (int j =0; j < this->numrows; j++){
+            this->map[j][i].quantity = quantity;
+        }
+    }
 }
 
 void Grid::MoveCursor(int x, int y){
@@ -103,7 +157,7 @@ void Grid::MoveCursor(int x, int y){
 
 auto Grid::ToString() -> std::string{
     std::string output;
-    for (int c = 0; c<this->numcols; c++){
+    for (int c = 0; c<this->numcols + 1; c++){
         output.append(this->pillars[0][c].ToString());
     }
     output += "\n";

@@ -2,7 +2,7 @@
 #include <string>
 
 Pillar::Pillar(std::string identifer):
-    identifer(identifer = " "),
+    identifer(identifer),
     selected(false)
     {}
 
@@ -14,5 +14,5 @@ auto Pillar::ToString() -> std::string{
         bg = "49";
     }
 
-    return "\033[37;" + bg + "m[" + this->identifer + "]\033[0m";
+    return "\033[37;" + bg + "m " + this->identifer + " \033[0m";
 };

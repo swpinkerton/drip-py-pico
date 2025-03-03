@@ -12,6 +12,15 @@ class Grid{
         ~Grid();
         auto ToString() -> std::string;
         void ChangeElement(Cell element, int row, int col);
+        auto Row() -> int;
+        auto Column() -> int;
+        auto All() -> bool;
+        void ChangeRowLiquid(Liquid liquid);
+        void ChangeColumnLiquid(Liquid liquid);
+        void ChangeAllLiquid(Liquid liquid);
+        void ChangeRowQuantity(double quantity);
+        void ChangeColumnQuantity(double quantity);
+        void ChangeAllQuantity(double quantity);
         void ChangeLiquid(Liquid liquid);
         void ChangeQuantity(double quantity);
         void MoveCursor(int x, int y);
