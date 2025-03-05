@@ -1,11 +1,47 @@
-#include <cstdio>
-#include <hardware/adc.h>
+#include <stdio.h>
+
+#include "hardware/gpio.h"
 #include <pico/stdlib.h>
 #include <pico/time.h>
 
 #include "cell.hpp"
 #include "grid.hpp"
 #include "state.cpp"
+
+#include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
+#include "task.h"
+
+#define LED_PIN 25
+#define RED_LED 14
+
+#define GPIO_ON     1
+#define GPIO_OFF    0
+
+void GreenLEDTask(void *)
+{
+    while (1){
+        gpio_put(LED_PIN, GPIO_ON);
+        vTaskDelay(1000);
+        gpio_put(LED_PIN, GPIO_OFF);
+        vTaskDelay(1000);
+    }
+}
+
+void RedLEDTask(void *)
+{
+    while (1){
+        gpio_put(RED_LED, GPIO_ON);
+        vTaskDelay(1000);
+        gpio_put(RED_LED, GPIO_OFF);
+        vTaskDelay(1000);
+    }
+}
+
+struct StateGrid {
+    State* state;
+    Grid* grid;
+};
 
 void PrintWelcome() {
     printf("\033c");
@@ -83,76 +119,89 @@ void process_liquid(State* state, Grid* grid, char c) {
 }
 
 
-void processKeyPress(State* state, Grid* grid) {
-    int c = getchar(); // Non-blocking read
+void processKeyPress(void* p) {
+    while (1){
+        struct StateGrid *sg = (struct StateGrid *) p;
+        State* state = sg->state;
+        Grid* grid = sg->grid;
 
-    if (*state == State::root) {
-        if (c == '\e') { // Escape sequence starts with '\e'
-            if (getchar_timeout_us(0) == '[') { // Second part of sequence
-                switch (getchar_timeout_us(0)) { // Read the final character
-                    case 'A':
-                        grid->MoveCursor(0, -1);
-                        break;
-                    case 'B':
-                        grid->MoveCursor(0, 1);
-                        break;
-                    case 'C':
-                        grid->MoveCursor(1, 0);
-                        break;
-                    case 'D':
-                        grid->MoveCursor(-1, 0);
-                        break;
+        int c = getchar(); // Non-blocking read
+
+        if (*state == State::root) {
+            if (c == '\e') { // Escape sequence starts with '\e'
+                if (getchar_timeout_us(0) == '[') { // Second part of sequence
+                    switch (getchar_timeout_us(0)) { // Read the final character
+                        case 'A':
+                            grid->MoveCursor(0, -1);
+                            break;
+                        case 'B':
+                            grid->MoveCursor(0, 1);
+                            break;
+                        case 'C':
+                            grid->MoveCursor(1, 0);
+                            break;
+                        case 'D':
+                            grid->MoveCursor(-1, 0);
+                            break;
+                    }
                 }
             }
+            else if (c == '\n' || c == '\r') {
+                *state = State::recieving_liquid;
+            }
+            else if (c >= '0' && c <= '3') {
+                process_liquid(state, grid, c);
+            }
         }
-        else if (c == '\n' || c == '\r') {
-            *state = State::recieving_liquid;
+        else if (*state == State::recieving_liquid) {
+            if (c >= '0' && c <= '3') {
+                process_liquid(state, grid, c);
+            }
+            else if (c == '\n' || c == '\r'){
+                *state = State::recieving_quantity;
+            }
         }
-        else if (c >= '0' && c <= '3') {
-            process_liquid(state, grid, c);
+        else if (*state == State::recieving_quantity) {
+            if (c >= '0' && c <= '9') {
+                int new_quantity = int(c - '0');
+                if (grid->All()){
+                    grid->ChangeAllQuantity(new_quantity);
+                }
+                if(grid->Row() != -1){
+                    grid->ChangeRowQuantity(new_quantity);
+                }
+                if(grid->Column() != -1){
+                    grid->ChangeColumnQuantity(new_quantity);
+                }
+                if (grid->All() == false && grid->Row() == -1 && grid->Column() == -1){
+                    grid->ChangeQuantity(new_quantity);
+                }
+                *state = State::root;
+            }
+            else if (c == '\n' || c == '\r') {
+                *state = State::root;
+            }
         }
+        output_grid(state, grid);
     }
-    else if (*state == State::recieving_liquid) {
-        if (c >= '0' && c <= '3') {
-            process_liquid(state, grid, c);
-        }
-        else if (c == '\n' || c == '\r'){
-            *state = State::recieving_quantity;
-        }
-    }
-    else if (*state == State::recieving_quantity) {
-        if (c >= '0' && c <= '9') {
-            int new_quantity = int(c - '0');
-            if (grid->All()){
-                grid->ChangeAllQuantity(new_quantity);
-            }
-            if(grid->Row() != -1){
-                grid->ChangeRowQuantity(new_quantity);
-            }
-            if(grid->Column() != -1){
-                grid->ChangeColumnQuantity(new_quantity);
-            }
-            if (grid->All() == false && grid->Row() == -1 && grid->Column() == -1){
-                grid->ChangeQuantity(new_quantity);
-            }
-            *state = State::root;
-        }
-        else if (c == '\n' || c == '\r') {
-            *state = State::root;
-        }
-    }
-    output_grid(state, grid);
 }
 
 
 int main() {
     stdio_init_all();
-    adc_init();
-    adc_gpio_init(26);
-    adc_select_input(0);
+
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+
+    gpio_init(RED_LED);
+    gpio_set_dir(RED_LED, GPIO_OUT);
+
+    TaskHandle_t gLEDtask = NULL;
+    TaskHandle_t rLEDtask = NULL;
+
+
     // Cell cell = Cell(Liquid::liquid1, 0.0);
     Grid grid = Grid(3, 8);
-
     State state = State::root;
 
     char c = '0';
@@ -162,8 +211,42 @@ int main() {
         PrintWelcome();
     }
     output_grid(&state, &grid);
-    while (1) {
-        processKeyPress(&state, &grid);
-        sleep_ms(10);
-    }
+
+    TaskHandle_t serial_task = NULL;
+
+    StateGrid sg = {&state, &grid};
+
+    xTaskCreate(
+        processKeyPress,
+        "serial",
+        2048,
+        &sg,
+        tskIDLE_PRIORITY,
+        &serial_task
+    );
+
+    xTaskCreate(
+        RedLEDTask,
+        "Red LED",
+        1024,
+        NULL,
+        1,
+        &rLEDtask
+    );
+
+    xTaskCreate(
+        GreenLEDTask,
+        "Green LED",
+        1024,
+        NULL,
+        2,
+        &gLEDtask
+    );
+
+    vTaskStartScheduler();
+
+    // while (1) {
+    //     processKeyPress(&state, &grid);
+    //     sleep_ms(10);
+    // }
 }

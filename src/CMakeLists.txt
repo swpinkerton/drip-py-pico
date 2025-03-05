@@ -1,3 +1,5 @@
+find_library(../freertos freertos)
+
 add_library(liquid liquid.cpp)
 
 add_library(cell cell.cpp)
@@ -12,7 +14,7 @@ add_library(state state.cpp)
 
 add_executable(main "main.cpp")
 target_compile_features(main PRIVATE cxx_std_23)
-target_link_libraries(main PRIVATE warnings pico_stdlib hardware_adc grid state)
+target_link_libraries(main PRIVATE warnings pico_stdlib hardware_gpio grid state FreeRTOS)
 pico_enable_stdio_usb(main 1)
 pico_enable_stdio_uart(main 0)
 pico_add_extra_outputs(main)
