@@ -19,6 +19,19 @@
 #define GPIO_ON     1
 #define GPIO_OFF    0
 
+// TODO: add a task to handle the electro stim
+//      - task notification trigered via the coms
+//      - mutex the electrostim information? - if we are parallel
+
+// TODO: add a scheduleing task to handle the current position and next positions
+//      - is toggled on/off via a task notification (or something similiar) from the comms
+//      - mutex the grid? - if we are parallel
+//      - needs to recalabrate the motors every now and then and default to recalibration when nothing is occuring
+//      - dispatches the motors (shared information and possibly a task notif?)
+
+// TODO: add a task to hand the motors
+//      - either the motors triggers a task to dispatch the liquid or they are in the same task (I prefer the later)
+
 void GreenLEDTask(void *)
 {
     while (1){
