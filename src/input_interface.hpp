@@ -2,19 +2,19 @@
 #define INPUT_INTERFACE_HPP
 
 #include "grid.hpp"
-#include "state.cpp"
+#include "input_state.cpp"
 
 
 struct StateGrid {
-    State* state;
+    InputState* input_state;
     Grid* grid;
 };
 
 void PrintWelcome();
 
-void output_grid(State* state, Grid* grid);
+void output_grid(InputState* state, Grid* grid);
 
-void process_liquid(State* state, Grid* grid, char c);
+void process_liquid(InputState* state, Grid* grid, char c);
 
 void processKeyPress(void* p);
 

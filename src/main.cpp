@@ -6,7 +6,7 @@
 
 #include "cell.hpp"
 #include "grid.hpp"
-#include "state.cpp"
+#include "input_state.cpp"
 #include "input_interface.hpp"
 
 #include "FreeRTOS.h"
@@ -31,6 +31,9 @@
 
 // TODO: add a task to hand the motors
 //      - either the motors triggers a task to dispatch the liquid or they are in the same task (I prefer the later)
+
+// TODO: add the ability for the user to bin, maybe have a start up process with liquid perging
+//      - does the bin need a full warning?
 
 void GreenLEDTask(void *)
 {
@@ -62,7 +65,7 @@ int main() {
     gpio_set_dir(RED_LED, GPIO_OUT);
 
     Grid grid = Grid(3, 8);
-    State state = State::root;
+    InputState input_state = InputState::root;
 
     char c = '0';
     while (c != ' ' && c != '\n' && c != '\r'){
@@ -70,13 +73,13 @@ int main() {
         sleep_ms(10);
         PrintWelcome();
     }
-    output_grid(&state, &grid);
+    output_grid(&input_state, &grid);
 
     TaskHandle_t serial_task = NULL;
     TaskHandle_t rLEDtask = NULL;
     TaskHandle_t gLEDtask = NULL;
 
-    StateGrid sg = {&state, &grid};
+    StateGrid sg = {&input_state, &grid};
 
     xTaskCreate(
         processKeyPress,

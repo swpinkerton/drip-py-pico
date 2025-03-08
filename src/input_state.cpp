@@ -1,7 +1,7 @@
 #ifndef STATE_CPP
 #define STATE_CPP
 
-enum State{
+enum InputState{
     root,
     recieving_liquid,
     recieving_quantity

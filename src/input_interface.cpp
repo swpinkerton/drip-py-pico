@@ -40,7 +40,7 @@ void PrintWelcome() {
     printf("Press Space Or Enter To Continue\n");
 }
 
-void output_grid(State* state, Grid* grid){
+void output_grid(InputState* input_state, Grid* grid){
     printf("\033c");
     printf(grid->ToString().c_str());
 
@@ -50,21 +50,21 @@ void output_grid(State* state, Grid* grid){
     printf("\x1B[33m3. Extract\033[0m\t"); //extract
     printf("\n");
 
-    if (*state == State::root){
+    if (*input_state == InputState::root){
         printf("Select a cell, column, row, or all(*)\n");
     }
 
-    if (*state == State::recieving_liquid){
+    if (*input_state == InputState::recieving_liquid){
         printf("Select a liquid/process\n");
     }
 
-    if (*state == State::recieving_quantity){
+    if (*input_state == InputState::recieving_quantity){
         printf("Enter a quantity(from 0-9)\n");
     }
 
 }
 
-void process_liquid(State* state, Grid* grid, char c) {
+void process_liquid(InputState* input_state, Grid* grid, char c) {
     Liquid new_liquid = Liquid(c - '0');
     if (grid->All()){
         grid->ChangeAllLiquid(new_liquid);
@@ -78,19 +78,19 @@ void process_liquid(State* state, Grid* grid, char c) {
     if (grid->All() == false && grid->Row() == -1 && grid->Column() == -1){
         grid->ChangeLiquid(new_liquid);
     }
-    *state = State::recieving_quantity;
+    *input_state = InputState::recieving_quantity;
 }
 
 
 void processKeyPress(void* p) {
     while (1){
         struct StateGrid *sg = (struct StateGrid *) p;
-        State* state = sg->state;
+        InputState* input_state = sg->input_state;
         Grid* grid = sg->grid;
 
         int c = getchar(); // Non-blocking read
 
-        if (*state == State::root) {
+        if (*input_state == InputState::root) {
             if (c == '\e') { // Escape sequence starts with '\e'
                 if (getchar_timeout_us(0) == '[') { // Second part of sequence
                     switch (getchar_timeout_us(0)) { // Read the final character
@@ -110,21 +110,21 @@ void processKeyPress(void* p) {
                 }
             }
             else if (c == '\n' || c == '\r') {
-                *state = State::recieving_liquid;
+                *input_state = InputState::recieving_liquid;
             }
             else if (c >= '0' && c <= '3') {
-                process_liquid(state, grid, c);
+                process_liquid(input_state, grid, c);
             }
         }
-        else if (*state == State::recieving_liquid) {
+        else if (*input_state == InputState::recieving_liquid) {
             if (c >= '0' && c <= '3') {
-                process_liquid(state, grid, c);
+                process_liquid(input_state, grid, c);
             }
             else if (c == '\n' || c == '\r'){
-                *state = State::recieving_quantity;
+                *input_state = InputState::recieving_quantity;
             }
         }
-        else if (*state == State::recieving_quantity) {
+        else if (*input_state == InputState::recieving_quantity) {
             if (c >= '0' && c <= '9') {
                 int new_quantity = int(c - '0');
                 if (grid->All()){
@@ -139,12 +139,12 @@ void processKeyPress(void* p) {
                 if (grid->All() == false && grid->Row() == -1 && grid->Column() == -1){
                     grid->ChangeQuantity(new_quantity);
                 }
-                *state = State::root;
+                *input_state = InputState::root;
             }
             else if (c == '\n' || c == '\r') {
-                *state = State::root;
+                *input_state = InputState::root;
             }
         }
-        output_grid(state, grid);
+        output_grid(input_state, grid);
     }
 }
