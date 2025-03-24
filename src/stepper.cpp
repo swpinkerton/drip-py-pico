@@ -4,14 +4,24 @@
 #include "hardware/irq.h"
 #include "hardware/pwm.h"
 #include <stdio.h>
+#include "FreeRTOS.h"
+#include "queue.h"
+#include <cstdlib>
 
 static bool going_up = false;
 static int pwm_level = 0;
 static int pwm_increment = 1;
 
+int8_t sign(int n) {
+    if (n >= 0) return 1;
+    else return -1;
+}
+
 bool motor_irq_handler(repeating_timer_t *rt) {
 
+#ifdef DEBUG
     printf("ISR entered\n");
+#endif
 
     motor_t* motor_data = (motor_t*) rt->user_data;
 
@@ -37,8 +47,10 @@ bool motor_irq_handler(repeating_timer_t *rt) {
         }
     }
 
+#ifdef DEBUG
     printf("a level: %d\n", pwm_level);
     printf("b level: %d\n", PWM_WRAP-pwm_level);
+#endif
 
     pwm_set_gpio_level(motor_data->pin_apwm, pwm_level);
     pwm_set_gpio_level(motor_data->pin_bpwm, PWM_WRAP-pwm_level);
@@ -52,9 +64,6 @@ motor_t stepper_motor_init(axis_t axis) {
     motor_t motor;
 
     motor.step_cycle = 0;
-    motor.step_incomplete = false;
-    motor.n_microsteps = 10;
-    motor.step_time_ms = 10;
 
     switch (axis)
     {
@@ -109,9 +118,6 @@ motor_t stepper_motor_basic_init(axis_t axis) {
     motor_t motor;
 
     motor.step_cycle = 0;
-    motor.step_incomplete = false;
-    motor.n_microsteps = 10;
-    motor.step_time_ms = 10;
 
     switch (axis)
     {
@@ -161,7 +167,7 @@ void pwm_check(motor_t* motor) {
     pwm_set_gpio_level(motor->pin_bpwm, PWM_WRAP/10);
 }
 
-void stepper_motor_step(motor_t* motor, motor_direction_t direction) {
+void stepper_motor_step(motor_t* motor, int8_t direction) {
 
     gpio_put(motor->pin_apwm, 1);
     gpio_put(motor->pin_bpwm, 1);
@@ -190,21 +196,19 @@ void stepper_motor_step(motor_t* motor, motor_direction_t direction) {
 
     // Update the step cycle
 
-    if (direction == CW) {
+    if (direction == 1) {
         motor->step_cycle++;
         if (motor->step_cycle == 4) motor->step_cycle = 0;
-    } else if (direction == CCW) {
-        motor->step_cycle--;
-        if (motor->step_cycle == -1) motor->step_cycle = 3;
+    } else if (direction == -1) {
+        if (motor->step_cycle == 0) motor->step_cycle = 3;
+        else motor->step_cycle--;
     }
 }
 
-bool stepper_motor_smooth_step(motor_t* motor, motor_direction_t direction, uint step_time_ms, uint n_microsteps) {
+void stepper_motor_smooth_step(motor_t* motor, int8_t direction, uint step_time_ms, uint n_microsteps) {
     
     if (motor->busy) {
-        return false;
-    } else {
-        motor->busy = true;
+        return;
     }
 
     pwm_set_enabled(pwm_gpio_to_slice_num(motor->pin_apwm), true);
@@ -246,64 +250,105 @@ bool stepper_motor_smooth_step(motor_t* motor, motor_direction_t direction, uint
     pwm_increment = PWM_WRAP/n_microsteps;
     add_repeating_timer_us(delay_us, motor_irq_handler, (void*) motor, &timer);
 
+#ifdef DEBUG
     printf("timer created\n");
+#endif
 
     // Update the step cycle
 
-    if (direction == CW) {
+    if (direction == 1) {
         motor->step_cycle++;
         if (motor->step_cycle == 4) motor->step_cycle = 0;
-    } else if (direction == CCW) {
-        motor->step_cycle--;
-        if (motor->step_cycle == -1) motor->step_cycle = 3;
+    } else if (direction == -1) {
+        if (motor->step_cycle == 0) motor->step_cycle = 3;
+        else motor->step_cycle--;
     }
 }
 
-void move_distance_xy(motor_t* x_motor, motor_t* y_motor, distance_t x_distance, distance_t y_distance) {
+void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queue)
+{
+    // Initialise the motor gpios
 
-    // Calculate the number of steps for each motor
-    uint x_revolutions = x_distance / THREAD_PITCH_MM;
-    uint x_total_steps = x_revolutions * MOTOR_STEPS_PER_REVOLUTION;
+    motor_t x_motor = stepper_motor_init(X_AXIS);
+    motor_t y_motor = stepper_motor_init(Y_AXIS);
 
-    uint y_revolutions = y_distance / THREAD_PITCH_MM;
-    uint y_total_steps = y_revolutions * MOTOR_STEPS_PER_REVOLUTION;
+    uint x_delta_steps = 0;
+    uint y_delta_steps = 0;
 
-    // Move the motors
-    uint x_completed_steps = 0;
-    uint y_completed_steps = 0;
+    int8_t x_direction = 1;
+    int8_t y_direction = 1;
 
-    bool x_finished = false;
-    bool y_finished = false;
+    float x_location = 0;
+    float y_location = 0;
+
+    float x_target = 0;
+    float y_target = 0;
+
+    bool x_moving = false;
+    bool y_moving = false;
 
     uint step_time = MIN_STEP_TIME_MS;
+    uint n_microsteps = N_MICROSTEPS;
+
+    TickType_t timeout;
+    BaseType_t xStatus;
+
+    bool response_sent = true;
+
+    motor_command_packet_t command;
 
     while (1) {
+        // Check for command. If motors are moving, use timeout of 0.
+        timeout = (x_moving or y_moving) ? 0 : 100;
+        xStatus = xQueueReceive(command_queue, &command, timeout);
 
-        if (!x_motor->busy && !x_finished) {
-
-            stepper_motor_smooth_step(x_motor, CW, step_time, N_MICROSTEPS);
-            x_completed_steps++;
-
-            if (x_completed_steps >= x_total_steps) {
-                x_finished = true;
+        // Process command.
+        if (pdPASS) {
+            if (command.command == MOVE) {
+                // If MOVE command, calculate new delta steps.
+                if (command.axis == X_AXIS) {
+                    x_target = command.target;
+                    float x_delta = x_target - x_location;
+                    x_direction = sign(x_delta);
+                    x_delta = abs(x_delta);
+                    float x_revolutions = x_delta / THREAD_PITCH_MM;
+                    x_delta_steps = x_revolutions * MOTOR_STEPS_PER_REVOLUTION;
+                }
+                else {
+                    y_target = command.target;
+                    float y_delta = y_target - y_location;
+                    y_direction = sign(y_delta);
+                    y_delta = abs(y_delta);
+                    float y_revolutions = y_delta / THREAD_PITCH_MM;
+                    y_delta_steps = y_revolutions * MOTOR_STEPS_PER_REVOLUTION;
+                }
             }
+            response_sent = false;
         }
 
-        if (!x_motor->busy && !y_finished) {
-
-            stepper_motor_smooth_step(y_motor, CW, step_time, N_MICROSTEPS);
-            y_completed_steps++;
-            
-            if (y_completed_steps >= y_total_steps) {
-                y_finished = true;
-            }
+        // Move the motors if needed.
+        // First check they aren't already mid-step.
+        if (x_delta_steps != 0 and x_motor.busy == false) {
+            stepper_motor_smooth_step(&x_motor, x_direction, step_time, n_microsteps);
+            x_delta_steps += x_direction;
+        } else {
+            x_moving = false;
         }
 
-        if (x_finished && y_finished) {
-            break;
+        if (y_delta_steps != 0 and y_motor.busy == false) {
+            stepper_motor_smooth_step(&y_motor, y_direction, step_time, n_microsteps);
+            y_delta_steps += y_direction;
+        } else {
+            y_moving = false;
+        }
+
+        // if no delta, send finished message.
+        if (!x_moving and !y_moving and !response_sent) {
+            const motor_response_t resp = COMPLETE;
+            xStatus = xQueueSend(response_queue, (void*) resp, 0);
+            if (xStatus == pdPASS) {
+                response_sent = true;
+            }
         }
     }
-    return;
 }
-
-

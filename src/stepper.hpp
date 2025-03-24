@@ -1,5 +1,6 @@
 #include "pico/stdlib.h"
-
+#include "FreeRTOS.h"
+#include "queue.h"
 
 // X Motor
 #define X_AIN_1   4
@@ -29,7 +30,7 @@
 
 typedef struct {
     uint step_cycle;
-    bool step_incomplete;
+    bool busy;
 
     uint pin_a1;
     uint pin_a2;
@@ -38,11 +39,6 @@ typedef struct {
     uint pin_b1;
     uint pin_b2;
     uint pin_bpwm;
-
-    uint step_time_ms;
-    uint n_microsteps;
-
-    bool busy;
 } motor_t;
 
 typedef enum {
@@ -51,16 +47,27 @@ typedef enum {
 } axis_t;
 
 typedef enum {
-    CW,
-    CCW
-} motor_direction_t;
+    MOVE,
+    ZERO
+} motor_command_t;
 
-typedef uint distance_t;
+typedef struct {
+    motor_command_t command;
+    axis_t axis;
+    float target;
+} motor_command_packet_t;
+
+typedef enum {
+    COMPLETE,
+    ERROR
+} motor_response_t;
 
 motor_t stepper_motor_init(axis_t axis);
 
 motor_t stepper_motor_basic_init(axis_t axis);
 
-void stepper_motor_smooth_step(motor_t* motor, motor_direction_t direction, uint step_time_ms, uint n_microsteps);
+void stepper_motor_smooth_step(motor_t* motor, int8_t direction, uint step_time_ms, uint n_microsteps);
 
-void stepper_motor_step(motor_t* motor, motor_direction_t direction);
+void stepper_motor_step(motor_t* motor, int8_t direction);
+
+void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queue);

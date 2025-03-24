@@ -6,13 +6,10 @@
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "task.h"
+#include "queue.h"
 #include "stepper.hpp"
 
-#define LED_PIN 25
-#define RED_LED 14
-
-#define GPIO_ON     1
-#define GPIO_OFF    0
+#define DEBUG
 
 // TODO: add a task to handle the electro stim
 //      - task notification trigered via the coms
@@ -30,54 +27,26 @@
 // TODO: add the ability for the user to bin, maybe have a start up process with liquid perging
 //      - does the bin need a full warning?
 
-void GreenLEDTask(void *)
-{
-    while (1){
-        gpio_put(LED_PIN, GPIO_ON);
-        vTaskDelay(1000);
-        gpio_put(LED_PIN, GPIO_OFF);
-        vTaskDelay(1000);
-    }
-}
+QueueHandle_t motor_command_q;
+QueueHandle_t motor_response_q;
 
-void RedLEDTask(void *)
+void motor_control_task(void *)
 {
-    while (1){
-        gpio_put(RED_LED, GPIO_ON);
-        vTaskDelay(1000);
-        gpio_put(RED_LED, GPIO_OFF);
-        vTaskDelay(1000);
-    }
+    motor_control_loop(motor_command_q, motor_response_q);
 }
 
 int main() {
     stdio_init_all();
 
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
-
-    gpio_init(RED_LED);
-    gpio_set_dir(RED_LED, GPIO_OUT);
-
-    TaskHandle_t rLEDtask = NULL;
-    TaskHandle_t gLEDtask = NULL;
+    TaskHandle_t motor_control_task_h = NULL;
 
     xTaskCreate(
-        RedLEDTask,
-        "Red LED",
+        motor_control_task,
+        "Motor Control",
         1024,
         NULL,
         1,
-        &rLEDtask
-    );
-
-    xTaskCreate(
-        GreenLEDTask,
-        "Green LED",
-        1024,
-        NULL,
-        2,
-        &gLEDtask
+        &motor_control_task_h
     );
 
     vTaskStartScheduler();
