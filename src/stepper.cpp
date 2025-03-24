@@ -1,4 +1,4 @@
-#include "stepper_control.h"
+#include "stepper.hpp"
 #include "pico/time.h"
 #include "pico/stdlib.h"
 #include "hardware/irq.h"

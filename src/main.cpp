@@ -3,15 +3,10 @@
 #include "hardware/gpio.h"
 #include <pico/stdlib.h>
 #include <pico/time.h>
-
-#include "cell.hpp"
-#include "grid.hpp"
-#include "input_state.cpp"
-#include "input_interface.hpp"
-
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "task.h"
+#include "stepper.hpp"
 
 #define LED_PIN 25
 #define RED_LED 14
@@ -64,31 +59,8 @@ int main() {
     gpio_init(RED_LED);
     gpio_set_dir(RED_LED, GPIO_OUT);
 
-    Grid grid = Grid(3, 8);
-    InputState input_state = InputState::root;
-
-    char c = '0';
-    while (c != ' ' && c != '\n' && c != '\r'){
-        c = getchar();
-        sleep_ms(10);
-        PrintWelcome();
-    }
-    output_grid(&input_state, &grid);
-
-    TaskHandle_t serial_task = NULL;
     TaskHandle_t rLEDtask = NULL;
     TaskHandle_t gLEDtask = NULL;
-
-    StateGrid sg = {&input_state, &grid};
-
-    xTaskCreate(
-        processKeyPress,
-        "serial",
-        2048,
-        &sg,
-        tskIDLE_PRIORITY,
-        &serial_task
-    );
 
     xTaskCreate(
         RedLEDTask,
