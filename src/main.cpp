@@ -35,10 +35,53 @@ void motor_control_task(void *)
     motor_control_loop(motor_command_q, motor_response_q);
 }
 
+void main_task(void *)
+{
+    // printf("Hello from main1\n");
+    
+    motor_command_packet_t command = {
+        ZERO,
+        X_AXIS,
+        0
+    };
+
+    BaseType_t xStatus;
+    
+
+    for (;;) {
+
+        xStatus = xQueueSend(motor_command_q, (void*) &command, 0);
+
+        if (xStatus == pdPASS) {
+            printf("Command Sent\n");
+        } else {
+            printf("Command Failed\n");
+        }
+
+        // vTaskDelay(pdMS_TO_TICKS(500));
+        printf("Hello from main\n");
+    }
+}
+
 int main() {
     stdio_init_all();
 
+    sleep_ms(5000);
+
+    printf("Started\n");
+
+    motor_command_q = xQueueCreate(5, sizeof(motor_command_packet_t));
+    motor_response_q = xQueueCreate(5, sizeof(motor_response_t));
+
+    if (motor_command_q == NULL or motor_response_q == NULL) {
+        printf("Queue Creation Failed\n");
+        return -1;
+    }
+
+    printf("Queues created\n");
+
     TaskHandle_t motor_control_task_h = NULL;
+    TaskHandle_t main_task_h = NULL;
 
     xTaskCreate(
         motor_control_task,
@@ -49,5 +92,19 @@ int main() {
         &motor_control_task_h
     );
 
+    xTaskCreate(
+        main_task,
+        "Main",
+        1024,
+        NULL,
+        1,
+        &main_task_h
+    );
+
+    printf("Tasks Created\n");
+
+
     vTaskStartScheduler();
+
+    for (;;);
 }

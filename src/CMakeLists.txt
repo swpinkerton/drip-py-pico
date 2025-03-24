@@ -15,9 +15,12 @@ add_library(input_state input_state.cpp)
 add_library(input_interface input_interface.cpp)
 target_link_libraries(input_interface grid input_state pico_stdlib)
 
-add_executable(main "main.cpp" "stepper.cpp")
-target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+add_subdirectory(Motor)
 
+add_executable(main "main.cpp")
+target_include_directories(main PRIVATE 
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/Motor)
 
 target_compile_features(main PRIVATE cxx_std_23)
 target_link_libraries(main PRIVATE 
@@ -27,6 +30,7 @@ target_link_libraries(main PRIVATE
             hardware_irq
             hardware_pwm
             FreeRTOS
+            stepper
 )
 
 pico_enable_stdio_usb(main 1)

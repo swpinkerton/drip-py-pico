@@ -19,9 +19,9 @@ int8_t sign(int n) {
 
 bool motor_irq_handler(repeating_timer_t *rt) {
 
-#ifdef DEBUG
-    printf("ISR entered\n");
-#endif
+// #ifdef DEBUG
+//     printf("ISR entered\n");
+// #endif
 
     motor_t* motor_data = (motor_t*) rt->user_data;
 
@@ -47,10 +47,10 @@ bool motor_irq_handler(repeating_timer_t *rt) {
         }
     }
 
-#ifdef DEBUG
-    printf("a level: %d\n", pwm_level);
-    printf("b level: %d\n", PWM_WRAP-pwm_level);
-#endif
+// #ifdef DEBUG
+//     printf("a level: %d\n", pwm_level);
+//     printf("b level: %d\n", PWM_WRAP-pwm_level);
+// #endif
 
     pwm_set_gpio_level(motor_data->pin_apwm, pwm_level);
     pwm_set_gpio_level(motor_data->pin_bpwm, PWM_WRAP-pwm_level);
@@ -250,9 +250,9 @@ void stepper_motor_smooth_step(motor_t* motor, int8_t direction, uint step_time_
     pwm_increment = PWM_WRAP/n_microsteps;
     add_repeating_timer_us(delay_us, motor_irq_handler, (void*) motor, &timer);
 
-#ifdef DEBUG
-    printf("timer created\n");
-#endif
+// #ifdef DEBUG
+//     printf("timer created\n");
+// #endif
 
     // Update the step cycle
 
@@ -268,6 +268,8 @@ void stepper_motor_smooth_step(motor_t* motor, int8_t direction, uint step_time_
 void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queue)
 {
     // Initialise the motor gpios
+
+    printf("Starting Motor Control Loop\n");
 
     motor_t x_motor = stepper_motor_init(X_AXIS);
     motor_t y_motor = stepper_motor_init(Y_AXIS);
@@ -290,7 +292,7 @@ void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queu
     uint step_time = MIN_STEP_TIME_MS;
     uint n_microsteps = N_MICROSTEPS;
 
-    TickType_t timeout;
+    TickType_t timeout = pdMS_TO_TICKS(10);
     BaseType_t xStatus;
 
     bool response_sent = true;
@@ -298,12 +300,17 @@ void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queu
     motor_command_packet_t command;
 
     while (1) {
+
+        printf("In motor loop\n");
+        // vTaskDelay(pdMS_TO_TICKS(500));
+        
         // Check for command. If motors are moving, use timeout of 0.
         timeout = (x_moving or y_moving) ? 0 : 100;
         xStatus = xQueueReceive(command_queue, &command, timeout);
 
         // Process command.
-        if (pdPASS) {
+        if (xStatus == pdPASS) {
+            printf("Command Received\n");
             if (command.command == MOVE) {
                 // If MOVE command, calculate new delta steps.
                 if (command.axis == X_AXIS) {
@@ -345,7 +352,7 @@ void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queu
         // if no delta, send finished message.
         if (!x_moving and !y_moving and !response_sent) {
             const motor_response_t resp = COMPLETE;
-            xStatus = xQueueSend(response_queue, (void*) resp, 0);
+            xStatus = xQueueSend(response_queue, (void*) &resp, 0);
             if (xStatus == pdPASS) {
                 response_sent = true;
             }
