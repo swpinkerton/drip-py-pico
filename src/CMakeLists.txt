@@ -13,7 +13,7 @@ target_link_libraries(grid cell pillar)
 add_library(input_state input_state.cpp)
 
 add_library(input_interface input_interface.cpp)
-target_link_libraries(input_interface grid input_state pico_stdlib)
+target_link_libraries(input_interface pico_stdlib hardware_gpio FreeRTOS)
 
 add_executable(main "main.cpp")
 target_compile_features(main PRIVATE cxx_std_23)

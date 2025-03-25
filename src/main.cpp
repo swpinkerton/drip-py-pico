@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <stdio.h>
 
 #include "hardware/gpio.h"
@@ -7,7 +8,7 @@
 #include "cell.hpp"
 #include "grid.hpp"
 #include "input_state.cpp"
-#include "input_interface.hpp"
+#include "input_interface.cpp"
 
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
@@ -64,49 +65,37 @@ int main() {
     gpio_init(RED_LED);
     gpio_set_dir(RED_LED, GPIO_OUT);
 
-    Grid grid = Grid(3, 8);
-    InputState input_state = InputState::root;
-
-    char c = '0';
-    while (c != ' ' && c != '\n' && c != '\r'){
-        c = getchar();
-        sleep_ms(10);
-        PrintWelcome();
-    }
-    output_grid(&input_state, &grid);
-
     TaskHandle_t serial_task = NULL;
     TaskHandle_t rLEDtask = NULL;
     TaskHandle_t gLEDtask = NULL;
 
-    StateGrid sg = {&input_state, &grid};
 
     xTaskCreate(
-        processKeyPress,
+        InputInterface,
         "serial",
         2048,
-        &sg,
+        NULL,
         tskIDLE_PRIORITY,
         &serial_task
     );
 
-    xTaskCreate(
-        RedLEDTask,
-        "Red LED",
-        1024,
-        NULL,
-        1,
-        &rLEDtask
-    );
+    // xTaskCreate(
+    //     RedLEDTask,
+    //     "Red LED",
+    //     1024,
+    //     NULL,
+    //     1,
+    //     &rLEDtask
+    // );
 
-    xTaskCreate(
-        GreenLEDTask,
-        "Green LED",
-        1024,
-        NULL,
-        2,
-        &gLEDtask
-    );
+    // xTaskCreate(
+    //     GreenLEDTask,
+    //     "Green LED",
+    //     1024,
+    //     NULL,
+    //     2,
+    //     &gLEDtask
+    // );
 
     vTaskStartScheduler();
 }

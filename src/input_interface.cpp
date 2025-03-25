@@ -2,142 +2,222 @@
 #include <cstdio>
 #include <vector>
 
+#include "hardware/gpio.h"
+#include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
+#include "task.h"
 
-enum InputState {
-    neutral,
-    move,
-    liquid
+
+// utlaise the header file for this cpp
+#define DEBUG_PRINTS 1
+
+#define LED_PIN 25
+#define RED_LED 14
+
+#define GPIO_ON     1
+#define GPIO_OFF    0
+
+void GreenLight() {
+    gpio_put(LED_PIN, GPIO_ON);
+    vTaskDelay(1000);
+    gpio_put(LED_PIN, GPIO_OFF);
+}
+
+void RedLight() {
+    gpio_put(RED_LED, GPIO_ON);
+    vTaskDelay(1000);
+    gpio_put(RED_LED, GPIO_OFF);
+}
+
+enum InputInterfaceState {
+    NEUTRAL,
+    MOVE,
+    LIQUID
 };
-
 
 struct LiquidCommand {
     Liquid liquid;
-    float quantity;
+    int quantity;
 };
-
 
 struct MoveCommand {
     int row;
     int column;
 };
 
-
-union Command {
-    LiquidCommand liquid;
-    MoveCommand move;
+enum CommandType {
+    COMMAND_MOVE,
+    COMMAND_LIQUID
 };
 
+struct Command {
+    CommandType type;
+    union {
+        LiquidCommand liquid;
+        MoveCommand move;
+    } data;
+};
 
-void ClearQueue(std::vector<Command> *commands){
+void ClearQueue(std::vector<Command> *commands) {
+    if (DEBUG_PRINTS){
+        printf("clearing queue \n");
+    }
     commands->clear();
 }
 
-
-void SendData(std::vector<Command> *commands){
+void SendData(std::vector<Command> *commands) {
+    if (DEBUG_PRINTS){
+        printf("Sending queue \n");
+    }
     // TODO: send the queued commands
     ClearQueue(commands);
 }
 
-
-void NeutralHandler(char c, InputState *state){
+void NeutralHandler(char c, InputInterfaceState *state) {
     switch (c) {
         case 'm':
-            * state = InputState.move;
+            *state = InputInterfaceState::MOVE;
             break;
         case 'l':
-            * state = InputState.liquid;
+            *state = InputInterfaceState::LIQUID;
             break;
         default:
             break;
     }
 }
 
-
-int RowHandler(char c){
-    if ('0' <= c && c <= '9'){
+int RowHandler(char c) {
+    if ('0' <= c && c <= '9') {
         return c - '0';
     }
     return -1;
 }
 
-
-int ColumnHandler(char c){
-    if ('a' <= c && c <= 'z'){
+int ColumnHandler(char c) {
+    if ('a' <= c && c <= 'z') {
         return c - 'a';
     }
-    if ('A' <= c && c <= 'Z'){
+    if ('A' <= c && c <= 'Z') {
         return c - 'A';
     }
     return -1;
 }
 
+MoveCommand MoveHandler(char c, InputInterfaceState *state) {
+    if (DEBUG_PRINTS){
+        printf("Move Command Started\n");
+    }
 
-auto MoveHandler (char c, InputState *state) -> MoveCommand{
+    RedLight();
     int row = RowHandler(c);
     int column = ColumnHandler(c);
-    while (row == -1 || column == -1){
+
+    while (row == -1 || column == -1) {
         c = getchar();
         int temp_row = RowHandler(c);
-        if (temp_row != -1){
+        if (temp_row != -1) {
             row = temp_row;
         }
         int temp_column = ColumnHandler(c);
-        if (temp_column != -1){
+        if (temp_column != -1) {
             column = temp_column;
         }
     }
-    * state = InputState.Nuetral;
-    MoveCommand mvc = MoveCommand();
+
+    *state = InputInterfaceState::NEUTRAL;
+    MoveCommand mvc;
     mvc.row = row;
     mvc.column = column;
+    GreenLight();
+    if (DEBUG_PRINTS){
+        printf("Moving to %d %d \n", row, column);
+    }
     return mvc;
 }
 
 
-auto LiquidHandler (char c, InputState *state) -> LiquidCommand{
-    int row = RowHandler(c);
-    int column = ColumnHandler(c);
-    while (row == -1 || column == -1){
+int GetCharacterAndConvertToInteger() {
+    char c = getchar();
+    while ('0' > c || c > '9') {
         c = getchar();
-        int temp_row = RowHandler(c);
-        if (temp_row != -1){
-            row = temp_row;
-        }
-        int temp_column = ColumnHandler(c);
-        if (temp_column != -1){
-            column = temp_column;
-        }
     }
-    * state = InputState.Nuetral;
-    LiquidCommand lqc = LiquidCommand();
-
+    return int(c - '0');
 }
 
 
+LiquidCommand LiquidHandler(char c, InputInterfaceState *state) {
+    if (DEBUG_PRINTS){
+        printf("Liquid Command Started\n");
+    }
+
+    LiquidCommand lqc;
+    // Populate liquid type and quantity
+    lqc.liquid = Liquid::none;
+    lqc.quantity = 1;
+    if ('0' <= c && c <= '3'){
+        lqc.liquid = static_cast<Liquid>(int(c - '0'));
+    }
+    else{
+        lqc.liquid = Liquid::none;
+    }
+
+    int ten_to_the_2 = GetCharacterAndConvertToInteger();
+    int ten_to_the_1 = GetCharacterAndConvertToInteger();
+    int ten_to_the_0 = GetCharacterAndConvertToInteger();
+
+    lqc.quantity = 100 * ten_to_the_2 + 10 * ten_to_the_1 + 1 * ten_to_the_0;
+
+    *state = InputInterfaceState::NEUTRAL;
+    if (DEBUG_PRINTS){
+        printf("Liquid %d for %d \n", lqc.liquid, lqc.quantity);
+    }
+
+    return lqc;
+}
+
 void InputInterface(void* p) {
-    InputState * state = (InputState *) p;
+    InputInterfaceState state = NEUTRAL; // Initialize state
     std::vector<Command> queue;
-    while (1){
-        // recieve char
-        int c = getchar(); // Non-blocking read
+
+    while (1) {
+        // receive char
+        char c = getchar(); // Note: This is blocking I/O
+
         // check for enter
-        if (c == '\r' || c == '\n'){
+        if (c == '\r' || c == '\n') {
             SendData(&queue);
+            continue;
         }
+
         // check for escape button
-        if (c == ' '){
+        if (c == ' ') {
             ClearQueue(&queue);
+            continue;
         }
-        if (state == InputState.nuetral){
-            NeutralHandler(c, state);
-        }
-        if (state == InputState.move){
-            MoveCommand mq = MoveHandler(c, state);
-            queue.insert(mq);
-        }
-        if (state == InputState.liquid){
-            LiquidCommand lq = LiquidHandler(c, state);
-            queue.insert(lq);
+
+        // Process based on state
+        switch (state) {
+            case InputInterfaceState::NEUTRAL:
+                NeutralHandler(c, &state);
+                break;
+
+            case InputInterfaceState::MOVE: {
+                MoveCommand mq = MoveHandler(c, &state);
+                Command cmd;
+                cmd.type = COMMAND_MOVE;
+                cmd.data.move = mq;
+                queue.push_back(cmd);
+                break;
+            }
+
+            case InputInterfaceState::LIQUID: {
+                LiquidCommand lq = LiquidHandler(c, &state);
+                Command cmd;
+                cmd.type = COMMAND_LIQUID;
+                cmd.data.liquid = lq;
+                queue.push_back(cmd);
+                break;
+            }
         }
     }
 }
