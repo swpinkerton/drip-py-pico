@@ -7,83 +7,30 @@
 
 #include "commands.cpp"
 #include "input_interface.cpp"
+#include "led.hpp"
+#include "command_handler.hpp"
 
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "task.h"
 #include "queue.h"
 
-#define LED_PIN 25
-#define RED_LED 14
 
-#define GPIO_ON     1
-#define GPIO_OFF    0
+// Split the command center and LED stuff into seperate files
+// Command scenter should be able to handle re-alignment and binning
+//
+// bin on the shorter axis (maybe recalibration for that motor can occur when binning)
+// maybe the other axis recalibrated upon a move to the home of the long axis?
 
-// TODO: add a task to handle the electro stim
-//      - task notification trigered via the coms
-//      - mutex the electrostim information? - if we are parallel
-
-// TODO: add a scheduleing task to handle the current position and next positions
-//      - is toggled on/off via a task notification (or something similiar) from the comms
-//      - mutex the grid? - if we are parallel
-//      - needs to recalabrate the motors every now and then and default to recalibration when nothing is occuring
-//      - dispatches the motors (shared information and possibly a task notif?)
-
-// TODO: add a task to hand the motors
-//      - either the motors triggers a task to dispatch the liquid or they are in the same task (I prefer the later)
-
-// TODO: add the ability for the user to bin, maybe have a start up process with liquid perging
-//      - does the bin need a full warning?
-
-void GreenLEDTask(void *)
-{
-    while (1){
-        gpio_put(LED_PIN, GPIO_ON);
-        vTaskDelay(1000);
-        gpio_put(LED_PIN, GPIO_OFF);
-        vTaskDelay(1000);
-    }
-}
-
-void RedLEDTask(void *)
-{
-    while (1){
-        gpio_put(RED_LED, GPIO_ON);
-        vTaskDelay(1000);
-        gpio_put(RED_LED, GPIO_OFF);
-        vTaskDelay(1000);
-    }
-}
-
-void QueuedRedLEDTask(void * p){
-    QueueHandle_t * commandQueue = (QueueHandle_t *) p;
-    Command receivedCommands;
-    while (1){
-        if (xQueueReceive(*commandQueue, &receivedCommands, portMAX_DELAY) == pdTRUE) {
-            // Process received commands
-        }
-        gpio_put(RED_LED, GPIO_ON);
-        vTaskDelay(1000);
-        gpio_put(RED_LED, GPIO_OFF);
-        vTaskDelay(1000);
-    }
-}
 
 int main() {
     stdio_init_all();
 
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
-
-    gpio_init(RED_LED);
-    gpio_set_dir(RED_LED, GPIO_OUT);
+    INITLEDs();
 
     TaskHandle_t serial_task = NULL;
-    TaskHandle_t rLEDtask = NULL;
-    TaskHandle_t gLEDtask = NULL;
 
-
-    QueueHandle_t commandQueue = xQueueCreate(5, sizeof(Command));
+    QueueHandle_t commandQueue = xQueueCreate(10, sizeof(Command));
 
 
     xTaskCreate(
@@ -96,7 +43,7 @@ int main() {
     );
 
     xTaskCreate(
-        QueuedRedLEDTask,
+        QueuedLEDTask,
         "RedLEDQ",
         2048,
         &commandQueue,

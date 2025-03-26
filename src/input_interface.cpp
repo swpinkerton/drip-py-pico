@@ -36,20 +36,13 @@ enum InputInterfaceState {
     LIQUID
 };
 
-void ClearQueue() {
+void ClearQueue(QueueHandle_t commandQueue) {
     if (DEBUG_PRINTS){
         printf("clearing queue \n");
     }
-    // xQueueReset();
+    xQueueReset(commandQueue);
 }
 
-void SendData() {
-    if (DEBUG_PRINTS){
-        printf("Sending queue \n");
-    }
-    // TODO: send the queued commands
-    ClearQueue();
-}
 
 void NeutralHandler(char c, InputInterfaceState *state) {
     switch (c) {
@@ -160,15 +153,9 @@ void InputInterface(void* p) {
         // receive char
         char c = getchar(); // Note: This is blocking I/O
 
-        // check for enter
-        if (c == '\r' || c == '\n') {
-            SendData();
-            continue;
-        }
-
         // check for escape button
-        if (c == ' ') {
-            ClearQueue();
+        if (c == '\r' || c == '\n' || c == ' ') {
+            ClearQueue(*commandQueue);
             continue;
         }
 
@@ -183,6 +170,9 @@ void InputInterface(void* p) {
                 Command cmd;
                 cmd.type = COMMAND_MOVE;
                 cmd.data.move = mq;
+                if (xQueueSend(*commandQueue, &cmd, portMAX_DELAY) != pdPASS) {
+                        printf("large failure sending liquid command, maybe we have a full queue?");
+                }
                 break;
             }
 
