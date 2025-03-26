@@ -1,4 +1,4 @@
-#include "cell.hpp"
+#include "commands.cpp"
 #include <cstdio>
 #include <vector>
 
@@ -6,28 +6,29 @@
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "task.h"
+#include "queue.h"
 
 
 // utlaise the header file for this cpp
 #define DEBUG_PRINTS 1
 
-#define LED_PIN 25
-#define RED_LED 14
+// #define LED_PIN 25
+// #define RED_LED 14
 
-#define GPIO_ON     1
-#define GPIO_OFF    0
+// #define GPIO_ON     1
+// #define GPIO_OFF    0
 
-void GreenLight() {
-    gpio_put(LED_PIN, GPIO_ON);
-    vTaskDelay(1000);
-    gpio_put(LED_PIN, GPIO_OFF);
-}
+// void GreenLight() {
+//     gpio_put(LED_PIN, GPIO_ON);
+//     vTaskDelay(1000);
+//     gpio_put(LED_PIN, GPIO_OFF);
+// }
 
-void RedLight() {
-    gpio_put(RED_LED, GPIO_ON);
-    vTaskDelay(1000);
-    gpio_put(RED_LED, GPIO_OFF);
-}
+// void RedLight() {
+//     gpio_put(RED_LED, GPIO_ON);
+//     vTaskDelay(1000);
+//     gpio_put(RED_LED, GPIO_OFF);
+// }
 
 enum InputInterfaceState {
     NEUTRAL,
@@ -35,42 +36,19 @@ enum InputInterfaceState {
     LIQUID
 };
 
-struct LiquidCommand {
-    Liquid liquid;
-    int quantity;
-};
-
-struct MoveCommand {
-    int row;
-    int column;
-};
-
-enum CommandType {
-    COMMAND_MOVE,
-    COMMAND_LIQUID
-};
-
-struct Command {
-    CommandType type;
-    union {
-        LiquidCommand liquid;
-        MoveCommand move;
-    } data;
-};
-
-void ClearQueue(std::vector<Command> *commands) {
+void ClearQueue() {
     if (DEBUG_PRINTS){
         printf("clearing queue \n");
     }
-    commands->clear();
+    // xQueueReset();
 }
 
-void SendData(std::vector<Command> *commands) {
+void SendData() {
     if (DEBUG_PRINTS){
         printf("Sending queue \n");
     }
     // TODO: send the queued commands
-    ClearQueue(commands);
+    ClearQueue();
 }
 
 void NeutralHandler(char c, InputInterfaceState *state) {
@@ -108,7 +86,6 @@ MoveCommand MoveHandler(char c, InputInterfaceState *state) {
         printf("Move Command Started\n");
     }
 
-    RedLight();
     int row = RowHandler(c);
     int column = ColumnHandler(c);
 
@@ -128,7 +105,6 @@ MoveCommand MoveHandler(char c, InputInterfaceState *state) {
     MoveCommand mvc;
     mvc.row = row;
     mvc.column = column;
-    GreenLight();
     if (DEBUG_PRINTS){
         printf("Moving to %d %d \n", row, column);
     }
@@ -176,8 +152,9 @@ LiquidCommand LiquidHandler(char c, InputInterfaceState *state) {
 }
 
 void InputInterface(void* p) {
+    QueueHandle_t * commandQueue = (QueueHandle_t *) p;
+
     InputInterfaceState state = NEUTRAL; // Initialize state
-    std::vector<Command> queue;
 
     while (1) {
         // receive char
@@ -185,13 +162,13 @@ void InputInterface(void* p) {
 
         // check for enter
         if (c == '\r' || c == '\n') {
-            SendData(&queue);
+            SendData();
             continue;
         }
 
         // check for escape button
         if (c == ' ') {
-            ClearQueue(&queue);
+            ClearQueue();
             continue;
         }
 
@@ -206,7 +183,6 @@ void InputInterface(void* p) {
                 Command cmd;
                 cmd.type = COMMAND_MOVE;
                 cmd.data.move = mq;
-                queue.push_back(cmd);
                 break;
             }
 
@@ -215,7 +191,9 @@ void InputInterface(void* p) {
                 Command cmd;
                 cmd.type = COMMAND_LIQUID;
                 cmd.data.liquid = lq;
-                queue.push_back(cmd);
+                if (xQueueSend(*commandQueue, &cmd, portMAX_DELAY) != pdPASS) {
+                        printf("large failure sending liquid command, maybe we have a full queue?");
+                }
                 break;
             }
         }

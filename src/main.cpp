@@ -5,14 +5,13 @@
 #include <pico/stdlib.h>
 #include <pico/time.h>
 
-#include "cell.hpp"
-#include "grid.hpp"
-#include "input_state.cpp"
+#include "commands.cpp"
 #include "input_interface.cpp"
 
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "task.h"
+#include "queue.h"
 
 #define LED_PIN 25
 #define RED_LED 14
@@ -56,6 +55,20 @@ void RedLEDTask(void *)
     }
 }
 
+void QueuedRedLEDTask(void * p){
+    QueueHandle_t * commandQueue = (QueueHandle_t *) p;
+    Command receivedCommands;
+    while (1){
+        if (xQueueReceive(*commandQueue, &receivedCommands, portMAX_DELAY) == pdTRUE) {
+            // Process received commands
+        }
+        gpio_put(RED_LED, GPIO_ON);
+        vTaskDelay(1000);
+        gpio_put(RED_LED, GPIO_OFF);
+        vTaskDelay(1000);
+    }
+}
+
 int main() {
     stdio_init_all();
 
@@ -70,12 +83,24 @@ int main() {
     TaskHandle_t gLEDtask = NULL;
 
 
+    QueueHandle_t commandQueue = xQueueCreate(5, sizeof(Command));
+
+
     xTaskCreate(
         InputInterface,
         "serial",
         2048,
-        NULL,
+        &commandQueue,
         tskIDLE_PRIORITY,
+        &serial_task
+    );
+
+    xTaskCreate(
+        QueuedRedLEDTask,
+        "RedLEDQ",
+        2048,
+        &commandQueue,
+        1,
         &serial_task
     );
 
