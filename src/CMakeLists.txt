@@ -33,6 +33,25 @@ target_link_libraries(main PRIVATE
             stepper
 )
 
+add_executable(motor_test motor_test_main_no_RTOS.cpp)
+target_include_directories(motor_test PRIVATE 
+            ${CMAKE_CURRENT_SOURCE_DIR}
+            ${CMAKE_CURRENT_SOURCE_DIR}/Motor)
+
+target_compile_features(motor_test PRIVATE cxx_std_23)
+target_link_libraries(motor_test PRIVATE 
+            warnings 
+            pico_stdlib 
+            hardware_gpio 
+            hardware_irq
+            hardware_pwm
+            stepper
+)
+
 pico_enable_stdio_usb(main 1)
 pico_enable_stdio_uart(main 0)
 pico_add_extra_outputs(main)
+
+pico_enable_stdio_usb(motor_test 1)
+pico_enable_stdio_uart(motor_test 0)
+pico_add_extra_outputs(motor_test)

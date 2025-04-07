@@ -39,27 +39,95 @@ void main_task(void *)
 {
     // printf("Hello from main1\n");
     
-    motor_command_packet_t command = {
-        ZERO,
-        X_AXIS,
-        0
+    motor_command_packet_t commands[] = {
+        {
+            MOVE,
+            X_AXIS,
+            10
+        },
+        {
+            MOVE,
+            Y_AXIS,
+            10
+        },
+        {
+            MOVE,
+            X_AXIS,
+            5
+        },
+        {
+            MOVE,
+            Y_AXIS,
+            5
+        },
+        {
+            MOVE,
+            X_AXIS,
+            20
+        },
+        {
+            MOVE,
+            Y_AXIS,
+            20
+        },
+        {
+            MOVE,
+            X_AXIS,
+            0
+        },
+        {
+            MOVE,
+            Y_AXIS,
+            0
+        }
     };
 
     BaseType_t xStatus;
     
+    int i = 0;
+
+    motor_response_t resp;
 
     for (;;) {
 
-        xStatus = xQueueSend(motor_command_q, (void*) &command, 0);
+        // Send command for X and Y.
+
+        xStatus = xQueueSend(motor_command_q, (void*) &commands[i], 0);
 
         if (xStatus == pdPASS) {
             printf("Command Sent\n");
+            i++;
         } else {
             printf("Command Failed\n");
         }
 
-        // vTaskDelay(pdMS_TO_TICKS(500));
-        printf("Hello from main\n");
+        xStatus = xQueueSend(motor_command_q, (void*) &commands[i], 0);
+
+        if (xStatus == pdPASS) {
+            printf("Command Sent\n");
+            i++;
+        } else {
+            printf("Command Failed\n");
+        }
+
+        while (1) {
+            // Wait until we rx confirmation.
+            xStatus = xQueueReceive(motor_response_q, (void*) &resp, pdMS_TO_TICKS(1000));
+            
+            if (xStatus == pdPASS) {
+                printf("Response received\n");
+                vTaskDelay(pdMS_TO_TICKS(2000));
+                
+                if (i >= 7) {
+                    i = 0;
+                }
+
+                break;
+            } else {
+                printf("timed out :(\n");
+            }
+            
+        }
     }
 }
 

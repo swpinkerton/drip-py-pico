@@ -11,17 +11,18 @@
 #define X_B_PWM   8
 
 // Y Motor
-#define Y_AIN_1   3
-#define Y_AIN_2   4
-#define Y_A_PWM   2
-#define Y_BIN_1   6
-#define Y_BIN_2   7
-#define Y_B_PWM   8
+#define Y_AIN_1   12
+#define Y_AIN_2   11
+#define Y_A_PWM   10
+#define Y_BIN_1   13
+#define Y_BIN_2   14
+#define Y_B_PWM   15
 
 // Physical Parameters
 #define THREAD_PITCH_MM             0.4
 #define MOTOR_STEPS_PER_REVOLUTION  24
 #define MIN_STEP_TIME_MS            2
+#define STEP_TIME_MS                3
 
 // PWM Settings
 #define PWM_WRAP        1024
@@ -71,3 +72,5 @@ void stepper_motor_smooth_step(motor_t* motor, int8_t direction, uint step_time_
 void stepper_motor_step(motor_t* motor, int8_t direction);
 
 void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queue);
+
+void disable_motor(motor_t* motor);
