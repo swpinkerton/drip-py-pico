@@ -9,8 +9,6 @@
 #include "queue.h"
 #include "stepper.hpp"
 
-#define DEBUG
-
 // TODO: add a task to handle the electro stim
 //      - task notification trigered via the coms
 //      - mutex the electrostim information? - if we are parallel
@@ -27,6 +25,23 @@
 // TODO: add the ability for the user to bin, maybe have a start up process with liquid perging
 //      - does the bin need a full warning?
 
+void master_interrupt_handler(uint gpio, uint32_t event) {
+    dprintf("master irq\n");
+    switch (gpio)
+    {
+    case X_ENDSTOP:
+        x_endstop_irq();
+        break;
+
+    case Y_ENDSTOP:
+        y_endstop_irq();
+        break;
+    
+    default:
+        break;
+    }
+}
+
 QueueHandle_t motor_command_q;
 QueueHandle_t motor_response_q;
 
@@ -36,52 +51,8 @@ void motor_control_task(void *)
 }
 
 void main_task(void *)
-{
-    // printf("Hello from main1\n");
+{    
     
-    motor_command_packet_t commands[] = {
-        {
-            MOVE,
-            X_AXIS,
-            10
-        },
-        {
-            MOVE,
-            Y_AXIS,
-            10
-        },
-        {
-            MOVE,
-            X_AXIS,
-            5
-        },
-        {
-            MOVE,
-            Y_AXIS,
-            5
-        },
-        {
-            MOVE,
-            X_AXIS,
-            20
-        },
-        {
-            MOVE,
-            Y_AXIS,
-            20
-        },
-        {
-            MOVE,
-            X_AXIS,
-            0
-        },
-        {
-            MOVE,
-            Y_AXIS,
-            0
-        }
-    };
-
     BaseType_t xStatus;
     
     int i = 0;
@@ -92,22 +63,39 @@ void main_task(void *)
 
         // Send command for X and Y.
 
-        xStatus = xQueueSend(motor_command_q, (void*) &commands[i], 0);
+        char input[20];
+        int x, y;
 
-        if (xStatus == pdPASS) {
-            printf("Command Sent\n");
-            i++;
+        motor_command_packet_t command_packet;
+
+        if (fgets(input, sizeof(input), stdin)) {
+
+            sscanf(input, "%d, %d", &x, &y);
+
+            // Create commands for x and y motors
+            command_packet.axis = X_AXIS;
+            command_packet.target = x;
+
+            xStatus = xQueueSend(motor_command_q, (void*)&command_packet, 0);
+            if (xStatus == pdPASS) {
+                printf("X Command Sent: %d\n", x);
+                i++;
+            } else {
+                printf("X Command Failed\n");
+            }
+
+            command_packet.axis = Y_AXIS;
+            command_packet.target = y;
+
+            xStatus = xQueueSend(motor_command_q, (void*)&command_packet, 0);
+            if (xStatus == pdPASS) {
+                printf("Y Command Sent: %d\n", y);
+                i++;
+            } else {
+                printf("Y Command Failed\n");
+            }
         } else {
-            printf("Command Failed\n");
-        }
-
-        xStatus = xQueueSend(motor_command_q, (void*) &commands[i], 0);
-
-        if (xStatus == pdPASS) {
-            printf("Command Sent\n");
-            i++;
-        } else {
-            printf("Command Failed\n");
+            printf("Invalid input. Please enter coordinates in the format 'x, y'.\n");
         }
 
         while (1) {
@@ -115,7 +103,7 @@ void main_task(void *)
             xStatus = xQueueReceive(motor_response_q, (void*) &resp, pdMS_TO_TICKS(1000));
             
             if (xStatus == pdPASS) {
-                printf("Response received\n");
+                printf("Gantry arrived!\n");
                 vTaskDelay(pdMS_TO_TICKS(2000));
                 
                 if (i >= 7) {
@@ -124,7 +112,7 @@ void main_task(void *)
 
                 break;
             } else {
-                printf("timed out :(\n");
+                dprintf("timed out :(\n");
             }
             
         }
@@ -132,22 +120,27 @@ void main_task(void *)
 }
 
 int main() {
+    // Pico hardware setup =========================================================
     stdio_init_all();
 
-    sleep_ms(5000);
+    gpio_set_irq_callback(master_interrupt_handler);
+    irq_set_enabled(IO_IRQ_BANK0, true);
 
-    printf("Started\n");
+    dprintf("Started\n");
 
+    // FreeRTOS Setup ==============================================================
+    // Queues
     motor_command_q = xQueueCreate(5, sizeof(motor_command_packet_t));
     motor_response_q = xQueueCreate(5, sizeof(motor_response_t));
 
     if (motor_command_q == NULL or motor_response_q == NULL) {
-        printf("Queue Creation Failed\n");
+        dprintf("Queue Creation Failed\n");
         return -1;
     }
 
-    printf("Queues created\n");
+    dprintf("Queues created\n");
 
+    // Tasks
     TaskHandle_t motor_control_task_h = NULL;
     TaskHandle_t main_task_h = NULL;
 
@@ -169,10 +162,13 @@ int main() {
         &main_task_h
     );
 
-    printf("Tasks Created\n");
+    dprintf("Tasks Created\n");
 
-
+    // Start the scheduler
     vTaskStartScheduler();
 
-    for (;;);
+    // Doesn't make it here.
+    for (;;) {
+        printf("ruh roh something went wrong :(\n");
+    }
 }

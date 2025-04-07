@@ -12,6 +12,26 @@ static bool going_up = false;
 static int pwm_level = 0;
 static int pwm_increment = 1;
 
+volatile int x_location = 0;
+volatile int y_location = 0;
+volatile int x_target = 0;
+volatile int y_target = 0;
+volatile int x_delta_steps = 0;
+volatile int y_delta_steps = 0;
+
+#ifdef DEBUG
+#include <stdarg.h>
+
+void dprintf(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+}
+#else
+void dprintf(...) {}
+#endif
+
 int8_t sign(int n) {
     if (n >= 0) return 1;
     else return -1;
@@ -20,7 +40,7 @@ int8_t sign(int n) {
 bool motor_irq_handler(repeating_timer_t *rt) {
 
 // #ifdef DEBUG
-    printf("ISR entered\n");
+    dprintf("ISR entered\n");
 // #endif
 
     motor_t* motor_data = (motor_t*) rt->user_data;
@@ -48,8 +68,8 @@ bool motor_irq_handler(repeating_timer_t *rt) {
     }
 
 // #ifdef DEBUG
-    printf("a level: %d\n", pwm_level);
-    printf("b level: %d\n", PWM_WRAP-pwm_level);
+    dprintf("a level: %d\n", pwm_level);
+    dprintf("b level: %d\n", PWM_WRAP-pwm_level);
 // #endif
 
     pwm_set_gpio_level(motor_data->pin_apwm, pwm_level);
@@ -128,6 +148,7 @@ motor_t stepper_motor_basic_init(axis_t axis) {
         motor.pin_b1    = X_BIN_1;
         motor.pin_b2    = X_BIN_2;
         motor.pin_bpwm  = X_B_PWM;
+        motor.pin_endstop = X_ENDSTOP;
         break;
     
     case Y_AXIS:
@@ -137,6 +158,7 @@ motor_t stepper_motor_basic_init(axis_t axis) {
         motor.pin_b1    = Y_BIN_1;
         motor.pin_b2    = Y_BIN_2;
         motor.pin_bpwm  = Y_B_PWM;
+        motor.pin_endstop = X_ENDSTOP;
         break;
     }
 
@@ -148,6 +170,7 @@ motor_t stepper_motor_basic_init(axis_t axis) {
     gpio_init(motor.pin_b1);
     gpio_init(motor.pin_b2);
     gpio_init(motor.pin_bpwm);
+    gpio_init(motor.pin_endstop);
     
     gpio_set_dir(motor.pin_a1, GPIO_OUT);
     gpio_set_dir(motor.pin_a2, GPIO_OUT);
@@ -155,6 +178,9 @@ motor_t stepper_motor_basic_init(axis_t axis) {
     gpio_set_dir(motor.pin_b1, GPIO_OUT);
     gpio_set_dir(motor.pin_b2, GPIO_OUT);
     gpio_set_dir(motor.pin_bpwm, GPIO_OUT);
+    
+    // gpio_set_dir(motor.pin_endstop, GPIO_IN);
+    // gpio_pull_up(motor.pin_endstop);
 
     return motor;
 }
@@ -213,7 +239,7 @@ void stepper_motor_smooth_step(motor_t* motor, int8_t direction, uint step_time_
 
 
 // #ifdef DEBUG
-    printf("smooth_step_function\n");
+    dprintf("smooth_step_function\n");
 // #endif
 
     // motor->busy = true;
@@ -258,7 +284,7 @@ void stepper_motor_smooth_step(motor_t* motor, int8_t direction, uint step_time_
     add_repeating_timer_us(delay_us, motor_irq_handler, (void*) motor, &timer);
 
 // #ifdef DEBUG
-    printf("timer created\n");
+    dprintf("timer created\n");
 // #endif
 
     // Update the step cycle
@@ -286,29 +312,42 @@ int mm_to_steps(float mm) {
     return (int) x_revolutions * MOTOR_STEPS_PER_REVOLUTION;
 }
 
+// void x_endstop_irq(uint gpio, uint32_t ekjh) {
+void x_endstop_irq() {
+    dprintf("x callback\n");
+    x_location = 0;
+    x_target = 0;
+    x_delta_steps = 0;
+}
+
+void y_endstop_irq() {
+    y_location = 0;
+    y_target = 0;
+    y_delta_steps = 0;
+}
+
 void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queue)
 {
     // Initialise the motor gpios
 
-    printf("Starting Motor Control Loop\n");
+    dprintf("Starting Motor Control Loop\n");
 
     motor_t x_motor = stepper_motor_basic_init(X_AXIS);
     motor_t y_motor = stepper_motor_basic_init(Y_AXIS);
 
-    int x_delta_steps = 0;
-    int y_delta_steps = 0;
+    // Initialise the axis coordinate variables
 
     int8_t x_direction = 1;
     int8_t y_direction = 1;
 
-    int x_location = 0;
-    int y_location = 0;
-
-    int x_target = 0;
-    int y_target = 0;
-
     bool x_moving = false;
     bool y_moving = false;
+
+    // Create the interrupts for handling the endstops.
+    gpio_set_irq_enabled(X_ENDSTOP, GPIO_IRQ_EDGE_FALL, true);
+    gpio_set_irq_enabled(Y_ENDSTOP, GPIO_IRQ_EDGE_FALL, true);
+    gpio_pull_up(X_ENDSTOP);
+    gpio_pull_up(Y_ENDSTOP);
 
     uint step_time = STEP_TIME_MS;
     uint n_microsteps = N_MICROSTEPS;
@@ -324,8 +363,7 @@ void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queu
 
     while (1) {
 
-
-        printf("Motor Status: Δx: %d, Δy: %d, xD: %d, yD: %d, xT: %d, yT: %d, xL: %d, yL: %d\n", x_delta_steps, y_delta_steps, x_direction, y_direction, x_target, y_target, x_location, y_location);
+        dprintf("Motor Status: Δx: %d, Δy: %d, xD: %d, yD: %d, xT: %d, yT: %d, xL: %d, yL: %d\n", x_delta_steps, y_delta_steps, x_direction, y_direction, x_target, y_target, x_location, y_location);
         
         // Check for command. If motors are moving, use timeout of 0.
         timeout = (x_moving or y_moving) ? 0 : 100;
@@ -333,7 +371,7 @@ void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queu
 
         // Process command.
         if (xStatus == pdPASS) {
-            printf("Command Received\n");
+            dprintf("Command Received\n");
             if (command.command == MOVE) {
                 // If MOVE command, calculate new delta steps.
                 if (command.axis == X_AXIS) {
@@ -350,6 +388,10 @@ void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queu
                     y_delta_steps = abs(y_delta_steps);
                     y_moving = true;
                 }
+            } else if (command.command == ZERO) {
+                // If ZERO command, go backwards until the interrupts are triggered.
+                x_target = -99999999;
+                y_target = -99999999;
             }
             response_sent = false;
         }

@@ -9,6 +9,7 @@
 #define X_BIN_1   6
 #define X_BIN_2   7
 #define X_B_PWM   8
+#define X_ENDSTOP 17
 
 // Y Motor
 #define Y_AIN_1   12
@@ -17,6 +18,7 @@
 #define Y_BIN_1   13
 #define Y_BIN_2   14
 #define Y_B_PWM   15
+#define Y_ENDSTOP 16
 
 // Physical Parameters
 #define THREAD_PITCH_MM             0.4
@@ -27,6 +29,8 @@
 // PWM Settings
 #define PWM_WRAP        1024
 #define N_MICROSTEPS    20
+
+#define DEBUG
 
 
 typedef struct {
@@ -40,6 +44,8 @@ typedef struct {
     uint pin_b1;
     uint pin_b2;
     uint pin_bpwm;
+
+    uint pin_endstop;
 } motor_t;
 
 typedef enum {
@@ -74,3 +80,12 @@ void stepper_motor_step(motor_t* motor, int8_t direction);
 void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queue);
 
 void disable_motor(motor_t* motor);
+
+void x_endstop_irq();
+void y_endstop_irq();
+
+#ifdef DEBUG
+void dprintf(const char *format, ...);
+#else
+void dprintf(...);
+#endif
