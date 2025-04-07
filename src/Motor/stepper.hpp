@@ -32,7 +32,6 @@
 
 #define DEBUG
 
-
 typedef struct {
     uint step_cycle;
     bool busy;
@@ -44,8 +43,6 @@ typedef struct {
     uint pin_b1;
     uint pin_b2;
     uint pin_bpwm;
-
-    uint pin_endstop;
 } motor_t;
 
 typedef enum {
@@ -69,11 +66,7 @@ typedef enum {
     ERROR
 } motor_response_t;
 
-motor_t stepper_motor_init(axis_t axis);
-
 motor_t stepper_motor_basic_init(axis_t axis);
-
-void stepper_motor_smooth_step(motor_t* motor, int8_t direction, uint step_time_ms, uint n_microsteps);
 
 void stepper_motor_step(motor_t* motor, int8_t direction);
 
@@ -82,6 +75,7 @@ void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queu
 void disable_motor(motor_t* motor);
 
 void x_endstop_irq();
+
 void y_endstop_irq();
 
 #ifdef DEBUG
