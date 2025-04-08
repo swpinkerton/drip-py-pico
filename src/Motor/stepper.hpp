@@ -3,22 +3,28 @@
 #include "queue.h"
 
 // X Motor
-#define X_AIN_1   4
-#define X_AIN_2   3
-#define X_A_PWM   2
-#define X_BIN_1   6
-#define X_BIN_2   7
-#define X_B_PWM   8
-#define X_ENDSTOP 17
+#define X_DIR_PIN       1
+#define X_STEP_PIN      2
+#define X_ENABLE_PIN    3
+#define X_ENDSTOP_PIN   17
 
 // Y Motor
-#define Y_AIN_1   12
-#define Y_AIN_2   11
-#define Y_A_PWM   10
-#define Y_BIN_1   13
-#define Y_BIN_2   14
-#define Y_B_PWM   15
-#define Y_ENDSTOP 16
+#define Y_DIR_PIN       4
+#define Y_STEP_PIN      5
+#define Y_ENABLE_PIN    6
+#define Y_ENDSTOP_PIN   16
+
+// Dropper Motor
+#define DROP_DIR_PIN        0
+#define DROP_STEP_PIN       0
+#define DROP_ENABLE_PIN     0
+#define DROP_ENDSTOP_PIN    0
+
+// Electrodes Motor
+#define ELEC_DIR_PIN        0
+#define ELEC_STEP_PIN       0
+#define ELEC_ENABLE_PIN     0
+#define ELEC_ENDSTOP_PIN    0
 
 // Physical Parameters
 #define THREAD_PITCH_MM             0.4
@@ -33,21 +39,24 @@
 #define DEBUG
 
 typedef struct {
-    uint step_cycle;
-    bool busy;
+    // Pins
+    uint pin_dir;
+    uint pin_step;
+    uint pin_enable;
 
-    uint pin_a1;
-    uint pin_a2;
-    uint pin_apwm;
-
-    uint pin_b1;
-    uint pin_b2;
-    uint pin_bpwm;
+    // Motion
+    uint location;
+    uint target;
+    uint delta_steps;
+    int8_t direction;
+    bool enabled;
 } motor_t;
 
 typedef enum {
     X_AXIS,
-    Y_AXIS
+    Y_AXIS,
+    Z_ELECTROSTIM,
+    Z_DROPPER
 } axis_t;
 
 typedef enum {
@@ -66,7 +75,7 @@ typedef enum {
     ERROR
 } motor_response_t;
 
-motor_t stepper_motor_basic_init(axis_t axis);
+void stepper_motor_init(motor_t* motor,axis_t axis);
 
 void stepper_motor_step(motor_t* motor, int8_t direction);
 
@@ -74,9 +83,9 @@ void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queu
 
 void disable_motor(motor_t* motor);
 
-void x_endstop_irq();
+void enable_motor(motor_t* motor);
 
-void y_endstop_irq();
+void endstop_irq_handler(uint gpio);
 
 #ifdef DEBUG
 void dprintf(const char *format, ...);

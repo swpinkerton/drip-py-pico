@@ -29,12 +29,9 @@ void master_interrupt_handler(uint gpio, uint32_t event) {
     dprintf("master irq\n");
     switch (gpio)
     {
-    case X_ENDSTOP:
-        x_endstop_irq();
-        break;
-
-    case Y_ENDSTOP:
-        y_endstop_irq();
+    case X_ENDSTOP_PIN:
+    case Y_ENDSTOP_PIN:
+        endstop_irq_handler(gpio);
         break;
     
     default:
