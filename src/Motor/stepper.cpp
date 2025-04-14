@@ -80,7 +80,11 @@ void stepper_motor_step(motor_t* motor, int8_t direction) {
     } else {
         gpio_put(motor->pin_dir, 0);
     }
+    // Delay 1us so direction pin setup time is met
+    sleep_us(1);
     gpio_put(motor->pin_step, 1);
+    // Delay 2us so step pin hold time is met
+    sleep_us(2);
     gpio_put(motor->pin_step, 0);
 }
 
@@ -107,9 +111,11 @@ void zero_axis(motor_t* motor) {
 
 void calculate_targets(motor_t* motor, uint target) {
     target = mm_to_steps(target);
+    printf("step target %d\n", target);
     int delta_steps =  target - motor->location;
     motor->delta_steps = (uint) abs(delta_steps);
     motor->direction = (int8_t) sign(delta_steps);
+    motor->target = target;
 }
 
 void endstop_irq_handler(uint gpio) {
@@ -183,6 +189,7 @@ void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queu
 
             // Move command
             if (command.command == MOVE) {
+                printf("command.target %d\n", command.target);
                 motor_t* target_motor = motors[command.axis];
                 calculate_targets(target_motor, command.target);
                 enable_motor(target_motor);
@@ -203,14 +210,14 @@ void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queu
 
         for (motor_t* motor : motors) {
             if (motor->enabled) {
-                stepper_motor_step(motor, motor->direction);
-                motor->delta_steps--;
-                motor->location += motor->direction;
-
+                // Check is motor has arrived before stepping to prevent missing target
                 if (motor->delta_steps == 0) {
                     disable_motor(motor);
                     motors_moving--;
                 }
+                stepper_motor_step(motor, motor->direction);
+                motor->delta_steps -= motor->direction;
+                motor->location += motor->direction;
             }
         }
 
