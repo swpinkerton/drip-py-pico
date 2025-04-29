@@ -1,5 +1,5 @@
 param (
-    [string]$filename = "motor_test.uf2",
+    [string]$filename = "main.uf2",
     [string]$pipath = "D:\"
 )
 

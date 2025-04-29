@@ -1,6 +1,7 @@
 #include "pico/stdlib.h"
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "pico/multicore.h"
 
 // X Motor
 #define X_DIR_PIN       0
@@ -47,9 +48,13 @@ typedef struct {
     // Motion
     uint location;
     uint target;
-    uint delta_steps;
     int8_t direction;
+    uint64_t next_step_time;
+    uint step_time;
     bool enabled;
+
+    // Sync
+    mutex_t lock;
 } motor_t;
 
 typedef enum {
@@ -64,28 +69,17 @@ typedef enum {
     ZERO
 } motor_command_t;
 
-typedef struct {
-    motor_command_t command;
-    axis_t axis;
-    float target;
-} motor_command_packet_t;
-
-typedef enum {
-    COMPLETE,
-    ERROR
-} motor_response_t;
-
 void stepper_motor_init(motor_t* motor,axis_t axis);
 
-void stepper_motor_step(motor_t* motor, int8_t direction);
-
-void motor_control_loop(QueueHandle_t command_queue, QueueHandle_t response_queue);
+void motor_control_loop();
 
 void disable_motor(motor_t* motor);
 
 void enable_motor(motor_t* motor);
 
 void endstop_irq_handler(uint gpio);
+
+void move_xy(uint x, uint y);
 
 #ifdef DEBUG
 void dprintf(const char *format, ...);
