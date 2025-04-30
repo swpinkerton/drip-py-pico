@@ -32,13 +32,17 @@
 #define MOTOR_STEPS_PER_REVOLUTION  24
 #define MIN_STEP_TIME_MS            2
 #define STEP_TIME_MS                3
-
-// PWM Settings
-#define PWM_WRAP        1024
-#define N_MICROSTEPS    20
+#define ACCELERATION                5000.0  // Steps/s^2
+#define MAX_RPM                     6000.0  // rpm
+#define MAX_SPEED                   96.0*MAX_RPM/60.0 // Steps/s
 
 #define DEBUG
 
+typedef enum {
+    ACCELERATING,
+    CRUISE,
+    BRAKING
+} motor_state_t;
 typedef struct {
     // Pins
     uint pin_dir;
@@ -49,8 +53,19 @@ typedef struct {
     uint location;
     uint target;
     int8_t direction;
+    int target_speed;
+    uint steps_to_accel;
+    uint steps_in_move;
+
+    // Vars for linear acceleration
+    uint step_counter;
+    uint move_start_time;
+    uint total_steps_in_move;
+
+    motor_state_t state;
     uint64_t next_step_time;
     uint step_time;
+
     bool enabled;
 
     // Sync

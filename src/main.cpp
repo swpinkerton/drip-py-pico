@@ -10,6 +10,10 @@ void core1_entry() {
     motor_control_loop();
 }
 
+// void run_command(char command[]) {
+
+// }
+
 int main() {
     stdio_init_all();
 
@@ -19,9 +23,9 @@ int main() {
 
     while(1) {
         printf("Core 0 hello\n");
-        move_xy(10,10);
-        sleep_ms(5000);
+        move_xy(40,40);
+        sleep_ms(3000);
         move_xy(0,0);
-        sleep_ms(5000);
+        sleep_ms(3000);
     }
 }
