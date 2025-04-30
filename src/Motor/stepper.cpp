@@ -150,7 +150,7 @@ void motor_control_loop()
     verbal_pause(6);
     
     // Initialise the motor gpios
-    dprintf("Setting up motors\n");
+    DPRINTF("Setting up motors\n");
 
     stepper_motor_init(&x_motor, X_AXIS);
     stepper_motor_init(&y_motor, Y_AXIS);
@@ -171,7 +171,7 @@ void motor_control_loop()
 
     uint64_t time = 10;
 
-    dprintf("Starting Motor Control Loop\n");
+    DPRINTF("Starting Motor Control Loop\n");
 
     gpio_init(21);
     gpio_set_dir(21, GPIO_OUT);
@@ -202,11 +202,11 @@ void motor_control_loop()
             mutex_enter_blocking(&motor->lock);
             if (motor->location != motor->target) {
                 if (time > motor->next_step_time) {
-                    // printf("Time: %llu\n", time);
+                    DPRINTF("Time: %llu\n", time);
                     gpio_put(motor->pin_step, 1);
 
-                    // printf("Steps to accell %d\n", motor->steps_to_accel);
-                    // printf("step counter %d\n", motor->step_counter);
+                    DPRINTF("Steps to accell %d\n", motor->steps_to_accel);
+                    DPRINTF("step counter %d\n", motor->step_counter);
 
                     
                     // Calculate the next step time.
@@ -217,9 +217,9 @@ void motor_control_loop()
                     if (motor->step_counter <= motor->steps_to_accel) {
                         // Use quadratic eq to find time we want to be at next step.
                         // distance = acceleration/2 * time^2
-                        // printf("accelerating...\n");
+                        DPRINTF("accelerating...\n");
                         uint next_step_time = sqrt(motor->step_counter/(ACCELERATION/2.0)) * 1e6;
-                        // printf("Move start time %d\n", motor->move_start_time);
+                        DPRINTF("Move start time %d\n", motor->move_start_time);
                         motor->next_step_time = motor->move_start_time + next_step_time;
                     } else {//if (motor->step_counter < motor->total_steps_in_move - motor->steps_to_accel) {
                         // We are in constant speed section and have reached max speed.
@@ -227,7 +227,7 @@ void motor_control_loop()
                     }
 
                     motor->location += motor->direction;
-                    // printf("stepping motor . T: %d, L: %d, D: %d, NST: %llu\n", motor->target, motor->location, motor->direction, motor->next_step_time);
+                    DPRINTF("stepping motor . T: %d, L: %d, D: %d, NST: %llu\n", motor->target, motor->location, motor->direction, motor->next_step_time);
                 }
             }
             mutex_exit(&motor->lock);

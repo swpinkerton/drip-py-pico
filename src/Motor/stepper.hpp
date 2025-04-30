@@ -36,8 +36,6 @@
 #define MAX_RPM                     6000.0  // rpm
 #define MAX_SPEED                   96.0*MAX_RPM/60.0 // Steps/s
 
-#define DEBUG
-
 typedef enum {
     ACCELERATING,
     CRUISE,

@@ -8,7 +8,7 @@ add_executable(main "main.cpp")
 target_include_directories(main PRIVATE 
             ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/Motor
-            ${CMAKE_CURRENT_SOURCE_DIR}/Debug)
+            ${CMAKE_CURRENT_SOURCE_DIR}/DebugTools)
 
 target_compile_features(main PRIVATE cxx_std_23)
 target_link_libraries(main PRIVATE 

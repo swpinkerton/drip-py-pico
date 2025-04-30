@@ -6,6 +6,8 @@ project(pico-cpp LANGUAGES C CXX ASM)
 
 pico_sdk_init()
 
+add_compile_definitions(DEBUG_ENABLE)
+
 add_library(warnings INTERFACE)
 target_compile_options(warnings INTERFACE "-Wall" "-Wextra" "-Wno-psabi")
 
