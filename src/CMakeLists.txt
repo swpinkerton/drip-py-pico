@@ -1,5 +1,7 @@
 find_library(../freertos freertos)
 
+add_subdirectory(serial)
+
 add_library(liquid liquid.cpp)
 
 add_library(commands commands.cpp)
