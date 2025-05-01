@@ -30,16 +30,14 @@
 // Physical Parameters
 #define THREAD_PITCH_MM             0.4
 #define MOTOR_STEPS_PER_REVOLUTION  24
-#define MIN_STEP_TIME_MS            2
-#define STEP_TIME_MS                3
+#define MICROSTEPS                  4
 #define ACCELERATION                5000.0  // Steps/s^2
 #define MAX_RPM                     6000.0  // rpm
 #define MAX_SPEED                   96.0*MAX_RPM/60.0 // Steps/s
 
 typedef enum {
-    ACCELERATING,
-    CRUISE,
-    BRAKING
+    MOVING,
+    STOPPED
 } motor_state_t;
 typedef struct {
     // Pins
@@ -93,6 +91,8 @@ void enable_motor(motor_t* motor);
 void endstop_irq_handler(uint gpio);
 
 void move_xy(uint x, uint y);
+
+motor_state_t check_status();
 
 #ifdef DEBUG
 void dprintf(const char *format, ...);

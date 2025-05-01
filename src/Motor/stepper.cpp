@@ -14,6 +14,7 @@ static motor_t x_motor;
 static motor_t y_motor;
 static motor_t z_drop_motor;
 static motor_t z_elec_motor;
+static uint n_active_motors;
 
 int8_t sign(int n) {
     if (n >= 0) return 1;
@@ -73,11 +74,13 @@ void stepper_motor_init(motor_t* motor, axis_t axis) {
 }
 
 void enable_motor(motor_t* motor) {
+    n_active_motors++;
     motor->enabled = true;
     gpio_put(motor->pin_enable, 1);
 }
 
 void disable_motor(motor_t* motor) {
+    n_active_motors--;
     motor->enabled = false;
     gpio_put(motor->pin_enable, 0);
 }
@@ -112,19 +115,12 @@ void endstop_irq_handler(uint gpio) {
     }
 }
 
-// void set_motor_rpm(motor_t* motor) {
-//     const int steps_per_rev = 200; // Assuming 200 steps per revolution for the motor
-//     const int microsteps = 32;    // 32 microsteps per step
-//     const int total_steps_per_rev = steps_per_rev * microsteps;
+void set_motor_rpm(motor_t* motor, uint rpm) {
+    rpm = (rpm > MAX_RPM) ? MAX_RPM : rpm;
+    motor->target_speed = rpm * MOTOR_STEPS_PER_REVOLUTION * MICROSTEPS / 60;
+}
 
-//     if (motor->rpm > 0) {
-//         motor->step_time = (60 * 1000000) / (motor->rpm * total_steps_per_rev); // Step time in microseconds
-//     } else {
-//         motor->step_time = 0; // Handle case where RPM is 0
-//     }
-// }
-
-void set_motor_target(motor_t* motor, uint target) {
+void set_motor_target(motor_t* motor, int target) {
     target = mm_to_steps(target);
 
     mutex_enter_blocking(&motor->lock);
@@ -137,12 +133,26 @@ void set_motor_target(motor_t* motor, uint target) {
     // Find the number of steps for acceleration/deceleration
     uint acceleration_time = motor->target_speed/ACCELERATION;
     motor->steps_to_accel = ACCELERATION/2 * acceleration_time * acceleration_time;
+
+    enable_motor(motor);
     mutex_exit(&motor->lock);
 }
 
-void move_xy(uint x, uint y) {
+void move_xy(int x, int y) {
     set_motor_target(&x_motor, x);
     set_motor_target(&y_motor, y);
+}
+
+void reset_axis() {
+    move_xy(-9999999, -9999999);
+}
+
+motor_state_t check_status() {
+    if (n_active_motors == 0) {
+        return STOPPED;
+    } else {
+        return MOVING;
+    }
 }
 
 void motor_control_loop()
@@ -162,6 +172,8 @@ void motor_control_loop()
     motors[Y_AXIS] = &y_motor;
     // motors[Z_DROPPER] = &z_drop_motor;
     // motors[Z_ELECTROSTIM] = &z_elec_motor;
+
+    n_active_motors = 0;
 
     // Create the interrupts for handling the endstops.
     gpio_set_irq_enabled(X_ENDSTOP_PIN, GPIO_IRQ_EDGE_FALL, true);
@@ -185,13 +197,11 @@ void motor_control_loop()
         for (motor_t* motor : motors) {
             mutex_enter_blocking(&motor->lock);
             int8_t pin_state = gpio_get(motor->pin_dir);
-            // printf("Pin state: %d\n", pin_state);
             if (pin_state == 0) pin_state = -1;
 
             if (pin_state != motor->direction) {
                 int8_t new_dir = motor->direction;
                 if (new_dir == -1) new_dir = 0;
-                // printf("Changing direction pin %d\n", new_dir);
                 gpio_put(motor->pin_dir, new_dir);
             }
             mutex_exit(&motor->lock);
@@ -200,7 +210,7 @@ void motor_control_loop()
         // Set all step pins
         for (motor_t* motor : motors) {
             mutex_enter_blocking(&motor->lock);
-            if (motor->location != motor->target) {
+            if (motor->enabled) {
                 if (time > motor->next_step_time) {
                     DPRINTF("Time: %llu\n", time);
                     gpio_put(motor->pin_step, 1);
@@ -208,7 +218,6 @@ void motor_control_loop()
                     DPRINTF("Steps to accell %d\n", motor->steps_to_accel);
                     DPRINTF("step counter %d\n", motor->step_counter);
 
-                    
                     // Calculate the next step time.
                     // Increment step counter now as we want to find time of the next step.
                     motor->step_counter++;
@@ -228,8 +237,14 @@ void motor_control_loop()
 
                     motor->location += motor->direction;
                     DPRINTF("stepping motor . T: %d, L: %d, D: %d, NST: %llu\n", motor->target, motor->location, motor->direction, motor->next_step_time);
+                    
+                    // If motor has reached target, disable it.
+                    if (motor->location == motor->target) {
+                        disable_motor(motor);
+                    }
                 }
             }
+
             mutex_exit(&motor->lock);
         }
         sleep_us(1);
