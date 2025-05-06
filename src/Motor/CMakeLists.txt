@@ -1,13 +1,18 @@
-add_library(stepper stepper.cpp)
+# Collect all source files in the Motor directory
+file(GLOB MOTOR_SOURCES "*.cpp")
 
-target_include_directories(stepper PRIVATE ../DebugTools)
+# Create a single library for Motor
+add_library(stepper STATIC ${MOTOR_SOURCES})
 
-target_link_libraries(stepper
+target_include_directories(stepper PUBLIC 
+    .
+    ../DebugTools
+)
+
+target_link_libraries(stepper PRIVATE
+    debug_tools
     pico_stdlib
     pico_multicore
-    hardware_pwm
-    hardware_irq
-    FreeRTOS
-    pico_time
-    debug_tools
+    hardware_gpio
+    # hardware_irq
 )
