@@ -2,6 +2,9 @@
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
 
+#define LOCK_MOTOR(motor)       mutex_enter_blocking(&motor->lock);
+#define UNLOCK_MOTOR(motor)     mutex_exit(&motor->lock);
+
 struct motor_pins_t{
     uint step;
     uint dir;

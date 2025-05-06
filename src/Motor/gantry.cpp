@@ -6,8 +6,6 @@
 static motor_t x_motor;
 static motor_t y_motor;
 
-static bool gantry_init = false;
-
 void gantry_isr(uint gpio, uint32_t event) {
     motor_t* motor;
 
@@ -25,9 +23,10 @@ void gantry_isr(uint gpio, uint32_t event) {
         return;
         break;
     }
-
+    LOCK_MOTOR(motor)
     motor->location = 0;
     motor->target = 0;
+    UNLOCK_MOTOR(motor)
     disable_motor(motor);
 }
 
@@ -53,8 +52,6 @@ void init_gantry() {
     gpio_pull_up(X_ENDSTOP_PIN);
     gpio_pull_up(Y_ENDSTOP_PIN);
     gpio_set_irq_callback(gantry_isr);
-
-    gantry_init = true;
 }
 
 void move_xy(int x, int y) {

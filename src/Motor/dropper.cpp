@@ -6,8 +6,6 @@
 static motor_t z_hose_motor;
 static motor_t z_electrode_motor;
 
-static bool dropper_init = false;
-
 void init_dropper() {
     motor_pins_t pins;
     pins.step = Z_HOSE_STEP_PIN;
@@ -21,8 +19,6 @@ void init_dropper() {
     pins.dir = Z_ELECTRODE_DIR_PIN;
     stepper_motor_init(&z_electrode_motor, pins);
     add_motor(&z_electrode_motor);
-
-    dropper_init = true;
 }
 
 void drop_hose() {

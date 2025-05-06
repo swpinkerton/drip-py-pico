@@ -45,19 +45,24 @@ void stepper_motor_init(motor_t* motor, motor_pins_t pins) {
 }
 
 void enable_motor(motor_t* motor) {
+    LOCK_MOTOR(motor)
     motor->enabled = true;
+    UNLOCK_MOTOR(motor)
     gpio_put(motor->pins.enable, 0);
 }
 
 void disable_motor(motor_t* motor) {
+    LOCK_MOTOR(motor)
     motor->enabled = false;
+    UNLOCK_MOTOR(motor)
     gpio_put(motor->pins.enable, 1);
 }
 
 void set_motor_target(motor_t* motor, int target) {
     target = mm_to_steps(target);
 
-    mutex_enter_blocking(&motor->lock);
+    LOCK_MOTOR(motor)
+
     motor->direction = (int8_t) sign(target - motor->location);
     motor->target = target;
     motor->next_step_time = to_us_since_boot(get_absolute_time());
@@ -69,5 +74,6 @@ void set_motor_target(motor_t* motor, int target) {
     motor->steps_to_accel = ACCELERATION/2 * acceleration_time * acceleration_time;
 
     enable_motor(motor);
-    mutex_exit(&motor->lock);
+    
+    UNLOCK_MOTOR(motor)
 }
