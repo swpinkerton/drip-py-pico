@@ -5,12 +5,20 @@
 #define LOCK_MOTOR(motor)       mutex_enter_blocking(&motor->lock);
 #define UNLOCK_MOTOR(motor)     mutex_exit(&motor->lock);
 
+/**
+ * @brief Struct to hold motor GPIO pins
+ * 
+ */
 struct motor_pins_t{
     uint step;
     uint dir;
     uint enable;
 };
 
+/**
+ * @brief Struct to hold motor related variables.
+ * 
+ */
 struct motor_t {
     // Pins
     motor_pins_t pins;
@@ -37,10 +45,32 @@ struct motor_t {
     mutex_t lock;
 };
 
+/**
+ * @brief Disable power to the motor
+ * 
+ * @param motor 
+ */
 void disable_motor(motor_t* motor);
 
+/**
+ * @brief Enable power to the motor
+ * 
+ * @param motor 
+ */
 void enable_motor(motor_t* motor);
 
+/**
+ * @brief Set the target location for the motors in mm
+ * 
+ * @param motor 
+ * @param target Target location in mm
+ */
 void set_motor_target(motor_t* motor, int target);
 
+/**
+ * @brief Initiliase the motor GPIO and variables
+ * 
+ * @param motor 
+ * @param pins 
+ */
 void stepper_motor_init(motor_t* motor, motor_pins_t pins);
