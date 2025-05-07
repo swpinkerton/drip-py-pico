@@ -2,11 +2,15 @@
 #include "stepper.h"
 #include "motor_settings.h"
 #include "controller.h"
+#include <stdio.h>
+#include "debug.h"
 
 static motor_t x_motor;
 static motor_t y_motor;
 
 void gantry_isr(uint gpio, uint32_t event) {
+    DTRACE();
+
     motor_t* motor;
 
     switch (gpio)
@@ -23,14 +27,15 @@ void gantry_isr(uint gpio, uint32_t event) {
         return;
         break;
     }
-    LOCK_MOTOR(motor)
+    LOCK_MOTOR(motor);
     motor->location = 0;
     motor->target = 0;
-    UNLOCK_MOTOR(motor)
+    UNLOCK_MOTOR(motor);
     disable_motor(motor);
 }
 
 void init_gantry() {
+    DTRACE();
     // X Motor
     motor_pins_t pins;
     pins.step = X_STEP_PIN;
@@ -55,11 +60,13 @@ void init_gantry() {
 }
 
 void move_xy(int x, int y) {
+    DTRACE();
     set_motor_target(&x_motor, x);
     set_motor_target(&y_motor, y);
 }
 
 GantryStatus get_gantry_status() {
+    DTRACE();
     if (x_motor.enabled or y_motor.enabled) {
         return GantryStatus::MOVING;
     } else {
@@ -68,6 +75,7 @@ GantryStatus get_gantry_status() {
 }
 
 void reset_gantry() {
+    DTRACE();
     set_motor_target(&x_motor, -9999);
     set_motor_target(&y_motor, -9999);
 }

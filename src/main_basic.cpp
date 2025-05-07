@@ -18,7 +18,13 @@ void core1_entry() {
 int main() {
     stdio_init_all();
 
+    verbal_pause(3);
+
     printf("Core 0 Started...\n");
+
+    // while(1) {
+    //     DPRINTF("balls2\n");
+    // }
 
     init_gantry();
     init_dropper();
@@ -26,10 +32,10 @@ int main() {
     multicore_launch_core1(core1_entry);
 
     while(1) {
-
+        printf("balls\n");
         move_xy(1000,1000);
-        sleep_ms(10000);
+        sleep_ms(1000);
         move_xy(0,0);
-        sleep_ms(10000);
+        sleep_ms(1000);
     }   
 }

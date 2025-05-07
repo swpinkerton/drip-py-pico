@@ -2,11 +2,14 @@
 #include "controller.h"
 #include "stepper.h"
 #include "motor_settings.h"
+#include "debug.h"
+#include <stdio.h>
 
 static motor_t z_hose_motor;
 static motor_t z_electrode_motor;
 
 void init_dropper() {
+    DTRACE();
     motor_pins_t pins;
     pins.step = Z_HOSE_STEP_PIN;
     pins.enable = Z_HOSE_ENABLE_PIN;
@@ -22,22 +25,27 @@ void init_dropper() {
 }
 
 void drop_hose() {
+    DTRACE();
     set_motor_target(&z_hose_motor, 100);
 }
 
 void drop_electrodes() {
+    DTRACE();
     set_motor_target(&z_electrode_motor, 100);
 }
 
 void raise_hose() {
+    DTRACE();
     set_motor_target(&z_hose_motor, -100);
 }
 
 void raise_electrodes() {
+    DTRACE();
     set_motor_target(&z_electrode_motor, -100);
 }
 
 DropperState get_dropper_status(DropperType type) {
+    DTRACE();
     motor_t* motor_in_question;
 
     if (type == DropperType::HOSE) {

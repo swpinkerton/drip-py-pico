@@ -1,9 +1,28 @@
 #pragma once
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
+#include "debug.h"
 
-#define LOCK_MOTOR(motor)       mutex_enter_blocking(&motor->lock);
-#define UNLOCK_MOTOR(motor)     mutex_exit(&motor->lock);
+/**
+ * @brief Macro for locking the motor mutexs
+ * 
+ */
+#define LOCK_MOTOR(motor)       \
+    do {\
+        DPRINTF_MUTEX("Waiting on %p\n", motor);\
+        mutex_enter_blocking(&motor->lock);\
+        DPRINTF_MUTEX("Locking %p\n", motor);\
+    } while (0)
+
+/**
+ * @brief Macro for unlocking motor mutexs
+ * 
+ */
+#define UNLOCK_MOTOR(motor)     \
+    do {\
+        mutex_exit(&motor->lock);\
+        DPRINTF_MUTEX("Unlocking %p\n", motor);\
+    } while(0)
 
 /**
  * @brief Struct to hold motor GPIO pins

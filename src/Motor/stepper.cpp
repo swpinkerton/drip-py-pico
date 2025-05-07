@@ -9,16 +9,19 @@
 #include "pico/multicore.h"
 
 int8_t sign(int n) {
+    DTRACE();
     if (n >= 0) return 1;
     else return -1;
 }
 
 int mm_to_steps(float mm) {
+    DTRACE();
     float x_revolutions = mm / THREAD_PITCH_MM;
     return (int) x_revolutions * MOTOR_STEPS_PER_REVOLUTION;
 }
 
 void stepper_motor_init(motor_t* motor, motor_pins_t pins) {
+    DTRACE();
     // GPIO pins
     motor->pins = pins;
 
@@ -45,23 +48,26 @@ void stepper_motor_init(motor_t* motor, motor_pins_t pins) {
 }
 
 void enable_motor(motor_t* motor) {
-    LOCK_MOTOR(motor)
+    DTRACE();
+    LOCK_MOTOR(motor);
     motor->enabled = true;
-    UNLOCK_MOTOR(motor)
+    UNLOCK_MOTOR(motor);
     gpio_put(motor->pins.enable, 0);
 }
 
 void disable_motor(motor_t* motor) {
-    LOCK_MOTOR(motor)
+    DTRACE();
+    LOCK_MOTOR(motor);
     motor->enabled = false;
-    UNLOCK_MOTOR(motor)
+    UNLOCK_MOTOR(motor);
     gpio_put(motor->pins.enable, 1);
 }
 
 void set_motor_target(motor_t* motor, int target) {
+    DTRACE();
     target = mm_to_steps(target);
 
-    LOCK_MOTOR(motor)
+    LOCK_MOTOR(motor);
 
     motor->direction = (int8_t) sign(target - motor->location);
     motor->target = target;
@@ -73,7 +79,7 @@ void set_motor_target(motor_t* motor, int target) {
     uint acceleration_time = motor->target_speed/ACCELERATION;
     motor->steps_to_accel = ACCELERATION/2 * acceleration_time * acceleration_time;
 
+    UNLOCK_MOTOR(motor);
+
     enable_motor(motor);
-    
-    UNLOCK_MOTOR(motor)
 }

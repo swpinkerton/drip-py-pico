@@ -5,16 +5,20 @@
 #include "pico/multicore.h"
 #include "motor_settings.h"
 #include <math.h>
+#include "pico/stdlib.h"
+#include <stdio.h>
 
 using std::vector;
 
 vector<motor_t*> motor_list;
 
 void add_motor(motor_t* motor) {
+    DTRACE();
     motor_list.push_back(motor);
 }
 
 void motor_control_loop() {  
+    DTRACE();
 
     uint64_t time = 0;
 
@@ -26,7 +30,7 @@ void motor_control_loop() {
 
         // Check direction pins are correct
         for (motor_t* motor : motor_list) {
-            mutex_enter_blocking(&motor->lock);
+            LOCK_MOTOR(motor);
             int8_t pin_state = gpio_get(motor->pins.dir);
             if (pin_state == 0) pin_state = -1;
 
@@ -35,12 +39,12 @@ void motor_control_loop() {
                 if (new_dir == -1) new_dir = 0;
                 gpio_put(motor->pins.dir, new_dir);
             }
-            mutex_exit(&motor->lock);
+            UNLOCK_MOTOR(motor);
         }
 
         // Set all step pins
         for (motor_t* motor : motor_list) {
-            mutex_enter_blocking(&motor->lock);
+            LOCK_MOTOR(motor);
             if (motor->enabled) {
                 if (time > motor->next_step_time) {
                     DPRINTF("Time: %llu\n", time);
@@ -71,20 +75,22 @@ void motor_control_loop() {
                     
                     // If motor has reached target, disable it.
                     if (motor->location == motor->target) {
+                        UNLOCK_MOTOR(motor);
                         disable_motor(motor);
+                        LOCK_MOTOR(motor);
                     }
                 }
             }
 
-            mutex_exit(&motor->lock);
+            UNLOCK_MOTOR(motor);
         }
         sleep_us(1);
 
         // Unset all motor step pins.
         for (motor_t* motor : motor_list) {
-            mutex_enter_blocking(&motor->lock);
+            LOCK_MOTOR(motor);
             gpio_put(motor->pins.step, 0);
-            mutex_exit(&motor->lock);
+            UNLOCK_MOTOR(motor);
         }
         sleep_us(1);
     }
