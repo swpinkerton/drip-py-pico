@@ -2,15 +2,32 @@
 #include "pico/stdlib.h"
 #include "debug_config.h"
 
+/* ========================
+ *     Debugging Tools
+ * ========================
+ * 
+ * To enable/disable different types of debug prints, define/comment out the respective defines 
+ * in the debug_config.h file.
+ */
+
 /**
  * @brief Print only if DEBUG_ENABLE is defined
  * 
- * To enable/disable debug prints, add/remove "add_compile_definitions(DEBUG_ENABLE)" from the top level CMakeLists.txt file.
  */
 #ifdef DEBUG_ENABLE
     #define DPRINTF(fmt, ...)   printf(fmt, ##__VA_ARGS__)
+
+    #define DPRINTF_TYPE(debug_type, fmt, ...) \
+        do { \
+            if (debug_type) {\
+                DPRINTF(fmt, ##__VA_ARGS__);\
+            }\
+            } while (0)
+
 #else
     #define DPRINTF(fmt, ...)
+
+    #define DPRINTF_TYPE(debug_type, fmt, ...)
 #endif
 
 /**
