@@ -15,3 +15,5 @@ void motor_control_loop();
  * @param motor Motor to be added to control list.
  */
 void add_motor(motor_t* motor);
+
+void manual_step(int num_steps);

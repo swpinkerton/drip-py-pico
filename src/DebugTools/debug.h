@@ -45,9 +45,29 @@
  * 
  */
 #ifdef DEBUG_TRACE
-    #define DPRINTF_TRACE(fmt, ...)     DPRINTF(fmt, ##__VA_ARGS__)
+    #define DPRINTF_TRACE(fmt, ...)     printf(fmt, ##__VA_ARGS__)
 #else
     #define DPRINTF_TRACE(fmt, ...)
+#endif
+
+/**
+ * @brief Debug prints for status updates
+ * 
+ */
+#ifdef DEBUG_STATUS
+    #define DSTATUS(fmt, ...)   DPRINTF(fmt, ##__VA_ARGS__)
+#else
+    #define DSTATUS(fmt, ...)
+#endif
+
+/**
+ * @brief Debug prints for status updates
+ * 
+ */
+#ifdef DEBUG_WARNING
+    #define DWARNING(fmt, ...)   DPRINTF(fmt, ##__VA_ARGS__)
+#else
+    #define DWARNING(fmt, ...)
 #endif
 
 /**

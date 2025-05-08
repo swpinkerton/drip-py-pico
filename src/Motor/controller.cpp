@@ -12,6 +12,10 @@ using std::vector;
 
 vector<motor_t*> motor_list;
 
+void manual_step(int num_steps) {
+    return;
+}
+
 void add_motor(motor_t* motor) {
     DTRACE();
     motor_list.push_back(motor);
@@ -22,7 +26,7 @@ void motor_control_loop() {
 
     uint64_t time = 0;
 
-    DPRINTF("Starting Motor Control Loop\n");
+    DPRINTF_TYPE(DEBUG_MOTOR, "Starting Motor Control Loop\n");
 
     while (1) {
         // if time elapsed < motor wait time step motor, calc next step time.
@@ -46,12 +50,18 @@ void motor_control_loop() {
         for (motor_t* motor : motor_list) {
             LOCK_MOTOR(motor);
             if (motor->enabled) {
-                if (time > motor->next_step_time) {
-                    DPRINTF("Time: %llu\n", time);
+                // Safety check if motor is already at target, disable it.
+                if (motor->location == motor->target) {
+                    UNLOCK_MOTOR(motor);
+                    disable_motor(motor);
+                    LOCK_MOTOR(motor);
+                } 
+                else if (time > motor->next_step_time) {
+                    DPRINTF_TYPE(DEBUG_MOTOR, "Time: %llu\n", time);
                     gpio_put(motor->pins.step, 1);
 
-                    DPRINTF("Steps to accell %d\n", motor->steps_to_accel);
-                    DPRINTF("step counter %d\n", motor->step_counter);
+                    DPRINTF_TYPE(DEBUG_MOTOR, "Steps to accell %d\n", motor->steps_to_accel);
+                    DPRINTF_TYPE(DEBUG_MOTOR, "step counter %d\n", motor->step_counter);
 
                     // Calculate the next step time.
                     // Increment step counter now as we want to find time of the next step.
@@ -61,9 +71,9 @@ void motor_control_loop() {
                     if (motor->step_counter <= motor->steps_to_accel) {
                         // Use quadratic eq to find time we want to be at next step.
                         // distance = acceleration/2 * time^2
-                        DPRINTF("accelerating...\n");
+                        DPRINTF_TYPE(DEBUG_MOTOR, "accelerating...\n");
                         uint next_step_time = sqrt(motor->step_counter/(ACCELERATION/2.0)) * 1e6;
-                        DPRINTF("Move start time %d\n", motor->move_start_time);
+                        DPRINTF_TYPE(DEBUG_MOTOR, "Move start time %d\n", motor->move_start_time);
                         motor->next_step_time = motor->move_start_time + next_step_time;
                     } else {//if (motor->step_counter < motor->total_steps_in_move - motor->steps_to_accel) {
                         // We are in constant speed section and have reached max speed.
@@ -71,7 +81,7 @@ void motor_control_loop() {
                     }
 
                     motor->location += motor->direction;
-                    DPRINTF("stepping motor . T: %d, L: %d, D: %d, NST: %llu\n", motor->target, motor->location, motor->direction, motor->next_step_time);
+                    DPRINTF_TYPE(DEBUG_MOTOR, "stepping motor . T: %d, L: %d, D: %d, NST: %llu\n", motor->target, motor->location, motor->direction, motor->next_step_time);
                     
                     // If motor has reached target, disable it.
                     if (motor->location == motor->target) {

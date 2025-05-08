@@ -37,8 +37,11 @@ int main() {
 
     printf("Started\n");
 
-    gpio_set_irq_enabled_with_callback(17, GPIO_IRQ_EDGE_FALL, true, &callback);
+    gpio_set_irq_enabled_with_callback(17, GPIO_IRQ_EDGE_FALL, true, callback);
+    // gpio_set_irq_callback(callback);
     gpio_set_irq_enabled(16, GPIO_IRQ_EDGE_FALL, true);
+    // gpio_set_irq_enabled(17, GPIO_IRQ_EDGE_FALL, true);
+    // gpio_set_irq_callback(callback);
 
     gpio_pull_up(17);
     gpio_pull_up(16);

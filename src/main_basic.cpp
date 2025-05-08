@@ -31,11 +31,22 @@ int main() {
 
     multicore_launch_core1(core1_entry);
 
+    printf("resetting gantry\n");
+    reset_gantry();
+    wait_on_gantry_reset();
+    printf("reset complete\n");
+
     while(1) {
         printf("balls\n");
-        move_xy(20, 20);
-        sleep_ms(6000);
-        move_xy(0,0);
-        sleep_ms(6000);
+        goto_well(0,0);
+        sleep_ms(3000);
+        goto_well(1,0);
+        sleep_ms(3000);
+        goto_well(5,0);
+        sleep_ms(3000);
+        // move_xy(20, 20);
+        // sleep_ms(6000);
+        // move_xy(0,0);
+        // sleep_ms(6000);
     }   
 }

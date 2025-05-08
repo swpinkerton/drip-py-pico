@@ -31,3 +31,10 @@
 #define ACCELERATION                5000.0  // Steps/s^2
 #define MAX_RPM                     1000.0  // rpm
 #define MAX_SPEED                   MOTOR_STEPS_PER_REVOLUTION*MICROSTEPS*MAX_RPM/60.0 // Steps/s
+
+// Sizing Settings
+#define WELL_START_LOCATION_X       10 // mm
+#define WELL_START_LOCATION_Y       10 // mm
+#define WELL_SPACING                9  // mm
+#define WELL_HOME_X                 10 // mm
+#define WELL_HOME_Y                 10 // mm

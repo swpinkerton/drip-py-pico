@@ -69,6 +69,12 @@ void set_motor_target(motor_t* motor, int target) {
 
     LOCK_MOTOR(motor);
 
+    if (motor->target == target) {
+        // Motor is already doing the right thing so change nothing.
+        UNLOCK_MOTOR(motor);
+        return;
+    }
+
     motor->direction = (int8_t) sign(target - motor->location);
     motor->target = target;
     motor->next_step_time = to_us_since_boot(get_absolute_time());
