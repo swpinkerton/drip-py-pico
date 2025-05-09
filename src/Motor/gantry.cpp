@@ -64,6 +64,8 @@ void init_gantry() {
     pins.enable = X_ENABLE_PIN;
     pins.dir = X_DIR_PIN;
     stepper_motor_init(&x_motor, pins);
+    set_motor_target_rpm(GANTRY_STEPS_PER_REVOLUTION, GANTRY_MAX_RPM, &x_motor);
+    set_motor_acceleration(GANTRY_STEPS_PER_REVOLUTION, GANTRY_ACCELERATION_RPM, &x_motor);
     add_motor(&x_motor);
 
     // Y Motor
@@ -71,6 +73,8 @@ void init_gantry() {
     pins.enable = Y_ENABLE_PIN;
     pins.dir = Y_DIR_PIN;
     stepper_motor_init(&y_motor, pins);
+    set_motor_target_rpm(GANTRY_STEPS_PER_REVOLUTION, GANTRY_MAX_RPM, &y_motor);
+    set_motor_acceleration(GANTRY_STEPS_PER_REVOLUTION, GANTRY_ACCELERATION_RPM, &y_motor);
     add_motor(&y_motor);
 
     // Create the interrupts for handling the endstops.

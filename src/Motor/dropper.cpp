@@ -15,12 +15,16 @@ void init_dropper() {
     pins.enable = Z_HOSE_ENABLE_PIN;
     pins.dir = Z_HOSE_DIR_PIN;
     stepper_motor_init(&z_hose_motor, pins);
+    set_motor_target_rpm(Z_STEPS_PER_REVOLUTION, Z_MAX_RPM, &z_hose_motor);
+    set_motor_acceleration(Z_STEPS_PER_REVOLUTION, Z_ACCELERATION_RPM, &z_hose_motor);
     add_motor(&z_hose_motor);
 
     pins.step = Z_ELECTRODE_STEP_PIN;
     pins.enable = Z_ELECTRODE_ENABLE_PIN;
     pins.dir = Z_ELECTRODE_DIR_PIN;
     stepper_motor_init(&z_electrode_motor, pins);
+    set_motor_target_rpm(Z_STEPS_PER_REVOLUTION, Z_MAX_RPM, &z_electrode_motor);
+    set_motor_acceleration(Z_STEPS_PER_REVOLUTION, Z_ACCELERATION_RPM, &z_electrode_motor);
     add_motor(&z_electrode_motor);
 }
 

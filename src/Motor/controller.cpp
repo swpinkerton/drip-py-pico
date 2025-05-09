@@ -82,7 +82,7 @@ void motor_control_loop() {
                         // Use quadratic eq to find time we want to be at next step.
                         // distance = acceleration/2 * time^2
                         DPRINTF_TYPE(DEBUG_MOTOR, "accelerating...\n");
-                        uint next_step_time = sqrt(motor->step_counter/(ACCELERATION/2.0)) * 1e6;
+                        uint next_step_time = sqrt(motor->step_counter/(motor->acceleration/2.0)) * 1e6;
                         DPRINTF_TYPE(DEBUG_MOTOR, "Move start time %d\n", motor->move_start_time);
                         motor->next_step_time = motor->move_start_time + next_step_time;
                     } else {//if (motor->step_counter < motor->total_steps_in_move - motor->steps_to_accel) {

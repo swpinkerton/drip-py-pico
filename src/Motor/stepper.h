@@ -47,6 +47,7 @@ struct motor_t {
     uint target;
     int8_t direction;
     int target_speed;
+    uint acceleration;
     uint steps_to_accel;
     uint steps_in_move;
 
@@ -56,13 +57,30 @@ struct motor_t {
     uint total_steps_in_move;
 
     uint64_t next_step_time;
-    uint step_time;
 
     bool enabled;
 
     // Sync
     mutex_t lock;
 };
+
+/**
+ * @brief Set the top speed of the motor in rpm
+ * 
+ * @param steps Total number of steps per revolution including microsteps
+ * @param rpm Speed in rpm
+ * @param motor
+ */
+void set_motor_target_rpm(uint steps, uint rpm, motor_t* motor);
+
+/**
+ * @brief Set the acceleation of the motor in rpm/s
+ * 
+ * @param steps Total number of steps per revolution including microsteps
+ * @param rpm Acceleration in rpm/s
+ * @param motor 
+ */
+void set_motor_acceleration(uint steps, uint rpm, motor_t* motor);
 
 /**
  * @brief Disable power to the motor

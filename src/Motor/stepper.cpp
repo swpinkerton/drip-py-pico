@@ -14,6 +14,14 @@ int8_t sign(int n) {
     else return -1;
 }
 
+void set_motor_target_rpm(uint steps, uint rpm, motor_t* motor) {
+    motor->target_speed = steps*rpm/60;
+}
+
+void set_motor_acceleration(uint steps, uint rpm, motor_t* motor) {
+    motor->acceleration = steps*rpm/60;
+}
+
 void stepper_motor_init(motor_t* motor, motor_pins_t pins) {
     DTRACE();
     // GPIO pins
@@ -25,8 +33,8 @@ void stepper_motor_init(motor_t* motor, motor_pins_t pins) {
     motor->target = 0;
     motor->enabled = false;
     motor->next_step_time = 0;
-    motor->step_time = 250;
-    motor->target_speed = MAX_SPEED;
+    motor->target_speed = 0;
+    motor->acceleration = 0;
 
     // Initialise the GPIO
     gpio_init(motor->pins.dir);
@@ -74,8 +82,8 @@ void set_motor_target(motor_t* motor, int target) {
     motor->step_counter = 0;
     
     // Find the number of steps for acceleration/deceleration
-    uint acceleration_time = motor->target_speed/ACCELERATION;
-    motor->steps_to_accel = ACCELERATION/2 * acceleration_time * acceleration_time;
+    uint acceleration_time = motor->target_speed/motor->acceleration;
+    motor->steps_to_accel = motor->acceleration/2 * acceleration_time * acceleration_time;
 
     UNLOCK_MOTOR(motor);
 

@@ -24,13 +24,20 @@
 #define Z_ELECTRODE_ENABLE_PIN     19
 #define Z_ELECTRODE_ENDSTOP_PIN    19
 
-// Settings
-#define GANTRY_THREAD_PITCH_MM          0.4
-#define GANTRY_STEPS_PER_REVOLUTION     24
+// Global Settings
 #define MICROSTEPS                  32
-#define ACCELERATION                5000.0  // Steps/s^2
-#define MAX_RPM                     1000.0  // rpm
-#define MAX_SPEED                   GANTRY_STEPS_PER_REVOLUTION*MICROSTEPS*MAX_RPM/60.0 // Steps/s
+
+// Gantry Settings
+#define GANTRY_THREAD_PITCH_MM          0.4
+#define GANTRY_STEPS_PER_REVOLUTION     24 * MICROSTEPS
+#define GANTRY_ACCELERATION_RPM         390.0
+#define GANTRY_MAX_RPM                  1000.0
+#define GANTRY_ZEROING_RPM              400.0
+
+// Dropper settings
+#define Z_ACCELERATION_RPM              200.0
+#define Z_MAX_RPM                       200.0
+#define Z_STEPS_PER_REVOLUTION          20 * MICROSTEPS
 
 // Sizing Settings
 #define WELL_START_LOCATION_X       10 // mm
