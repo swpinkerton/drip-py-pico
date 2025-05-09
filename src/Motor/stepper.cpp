@@ -15,7 +15,9 @@ int8_t sign(int n) {
 }
 
 void set_motor_target_rpm(uint steps, uint rpm, motor_t* motor) {
+    LOCK_MOTOR(motor);
     motor->target_speed = steps*rpm/60;
+    UNLOCK_MOTOR(motor);
 }
 
 void set_motor_acceleration(uint steps, uint rpm, motor_t* motor) {

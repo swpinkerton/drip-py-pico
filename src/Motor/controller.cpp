@@ -12,10 +12,6 @@ using std::vector;
 
 vector<motor_t*> motor_list;
 
-void manual_step(int num_steps) {
-    return;
-}
-
 void add_motor(motor_t* motor) {
     DTRACE();
     motor_list.push_back(motor);

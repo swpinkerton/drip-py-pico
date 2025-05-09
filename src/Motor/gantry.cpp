@@ -86,6 +86,8 @@ void init_gantry() {
 
 void move_xy(int x, int y) {
     DTRACE();
+    set_motor_target_rpm(GANTRY_STEPS_PER_REVOLUTION, GANTRY_MAX_RPM, &x_motor);
+    set_motor_target_rpm(GANTRY_STEPS_PER_REVOLUTION, GANTRY_MAX_RPM, &y_motor);
     x = mm_to_steps(x);
     y = mm_to_steps(y);
     set_motor_target(&x_motor, x);
@@ -118,6 +120,8 @@ void goto_well(uint x, uint y) {
 
 void reset_gantry() {
     DTRACE();
+    set_motor_target_rpm(GANTRY_STEPS_PER_REVOLUTION, GANTRY_ZEROING_RPM, &x_motor);
+    set_motor_target_rpm(GANTRY_STEPS_PER_REVOLUTION, GANTRY_ZEROING_RPM, &y_motor);
     gantry_resetting = true;
     set_motor_target(&x_motor, -999999);
     set_motor_target(&y_motor, -999999);

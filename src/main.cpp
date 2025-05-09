@@ -43,7 +43,33 @@ enum class State {
     RUNNING_COMMAND
 };
 
+bool gantry_move_is_legal() {
+    DTRACE();
+    DropperState hose_state = get_dropper_status(DropperType::HOSE);
+    DropperState electrodes_state = get_dropper_status(DropperType::ELECTRODES);
+
+    if (hose_state != DropperState::UP and electrodes_state != DropperState::UP) {
+        DWARNING("Gantry cannot move while one or more droppers are not fully up.\n");
+        return false;
+    }
+
+    return true;
+}
+
+bool dropper_move_is_legal() {
+    DTRACE();
+    GantryStatus state = get_gantry_status();
+
+    if (state == GantryStatus::STOPPED) {
+        return true;
+    }
+
+    DWARNING("Droppers cannot move unless gantry is stationary.\n");
+    return false;
+}
+
 int process_command(string command, Component& active_component) {
+    DTRACE();
     stringstream ss(command);
     string cmd;
     ss >> cmd;
@@ -55,6 +81,10 @@ int process_command(string command, Component& active_component) {
 
     if (cmd == "GOTO_WELL") 
     {
+        if (!gantry_move_is_legal()) {
+            return 0;
+        }
+
         int x, y;
         if (ss >> x >> y) {
             DSTATUS("GOTO_WELL %d %d command received\n", x, y);
@@ -66,6 +96,10 @@ int process_command(string command, Component& active_component) {
         }
     } else if (cmd == "MOVE")
     {
+        if (!gantry_move_is_legal()) {
+            return 0;
+        }
+        
         int x, y;
         if (ss >> x >> y) {
             DSTATUS("MOVE %d %d command received\n", x, y);
@@ -92,6 +126,10 @@ int process_command(string command, Component& active_component) {
         DSTATUS("ZERO %s command received\n", component.c_str());
 
         if (component == "GANTRY") {
+            if (!gantry_move_is_legal()) {
+                return 0;
+            }
+
             reset_gantry();
             active_component = Component::GANTRY;
             return 1;
@@ -103,17 +141,6 @@ int process_command(string command, Component& active_component) {
     {
         printf("STOP command received.\n");
         stop_motors();
-    } else if (cmd == "STEP")
-    {
-        int x;
-        if (ss >> x) {
-            DSTATUS("STEP %d command received\n", x);
-            manual_step(x);
-            active_component = Component::GANTRY;
-            return 1;
-        } else {
-            DWARNING("Bad arguments for STEP command\n");
-        }
     } else {
         printf("Unknown command: %s\n", cmd.c_str());
     }

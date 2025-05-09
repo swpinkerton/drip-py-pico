@@ -23,5 +23,3 @@ void add_motor(motor_t* motor);
  * 
  */
 void stop_motors();
-
-void manual_step(int num_steps);
