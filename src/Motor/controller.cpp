@@ -21,6 +21,16 @@ void add_motor(motor_t* motor) {
     motor_list.push_back(motor);
 }
 
+void stop_motors() {
+    DTRACE();
+    for (motor_t* motor : motor_list) {
+        disable_motor(motor);
+        LOCK_MOTOR(motor);
+        motor->target = motor->location;
+        UNLOCK_MOTOR(motor);
+    }
+}
+
 void motor_control_loop() {  
     DTRACE();
 

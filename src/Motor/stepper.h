@@ -79,10 +79,10 @@ void disable_motor(motor_t* motor);
 void enable_motor(motor_t* motor);
 
 /**
- * @brief Set the target location for the motors in mm
+ * @brief Set the target location for the motors in steps
  * 
  * @param motor 
- * @param target Target location in mm
+ * @param target Target location in steps
  */
 void set_motor_target(motor_t* motor, int target);
 

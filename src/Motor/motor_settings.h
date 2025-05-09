@@ -25,12 +25,12 @@
 #define Z_ELECTRODE_ENDSTOP_PIN    19
 
 // Settings
-#define THREAD_PITCH_MM             0.4
-#define MOTOR_STEPS_PER_REVOLUTION  24
+#define GANTRY_THREAD_PITCH_MM          0.4
+#define GANTRY_STEPS_PER_REVOLUTION     24
 #define MICROSTEPS                  32
 #define ACCELERATION                5000.0  // Steps/s^2
 #define MAX_RPM                     1000.0  // rpm
-#define MAX_SPEED                   MOTOR_STEPS_PER_REVOLUTION*MICROSTEPS*MAX_RPM/60.0 // Steps/s
+#define MAX_SPEED                   GANTRY_STEPS_PER_REVOLUTION*MICROSTEPS*MAX_RPM/60.0 // Steps/s
 
 // Sizing Settings
 #define WELL_START_LOCATION_X       10 // mm

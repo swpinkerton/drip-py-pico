@@ -16,4 +16,12 @@ void motor_control_loop();
  */
 void add_motor(motor_t* motor);
 
+/**
+ * @brief Immediately stop every motor
+ * 
+ * This will disable all the motor drivers and set the motor targets to be where the motors currently are.
+ * 
+ */
+void stop_motors();
+
 void manual_step(int num_steps);

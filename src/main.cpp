@@ -102,7 +102,7 @@ int process_command(string command, Component& active_component) {
     } else if (cmd == "STOP") 
     {
         printf("STOP command received.\n");
-        // Add logic to handle STOP command
+        stop_motors();
     } else if (cmd == "STEP")
     {
         int x;

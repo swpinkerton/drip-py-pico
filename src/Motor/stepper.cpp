@@ -14,12 +14,6 @@ int8_t sign(int n) {
     else return -1;
 }
 
-int mm_to_steps(float mm) {
-    DTRACE();
-    float x_revolutions = mm / THREAD_PITCH_MM;
-    return static_cast<int>(x_revolutions * MOTOR_STEPS_PER_REVOLUTION * MICROSTEPS);
-}
-
 void stepper_motor_init(motor_t* motor, motor_pins_t pins) {
     DTRACE();
     // GPIO pins
@@ -65,8 +59,6 @@ void disable_motor(motor_t* motor) {
 
 void set_motor_target(motor_t* motor, int target) {
     DTRACE();
-    target = mm_to_steps(target);
-
     LOCK_MOTOR(motor);
 
     if (motor->target == target) {

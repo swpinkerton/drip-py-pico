@@ -13,6 +13,12 @@ static bool gantry_resetting = false;
 static bool x_reset = false;
 static bool y_reset = false;
 
+int mm_to_steps(float mm) {
+    DTRACE();
+    float x_revolutions = mm / GANTRY_THREAD_PITCH_MM;
+    return static_cast<int>(x_revolutions * GANTRY_STEPS_PER_REVOLUTION * MICROSTEPS);
+}
+
 void gantry_isr(uint gpio, uint32_t event) {
     DPRINTF_TYPE(DEBUG_ISR, "Entering ISR\n");
 
@@ -72,11 +78,12 @@ void init_gantry() {
     gpio_set_irq_enabled(Y_ENDSTOP_PIN, GPIO_IRQ_EDGE_FALL, true);
     gpio_pull_up(X_ENDSTOP_PIN);
     gpio_pull_up(Y_ENDSTOP_PIN);
-    // gpio_set_irq_callback(gantry_isr);
 }
 
 void move_xy(int x, int y) {
     DTRACE();
+    x = mm_to_steps(x);
+    y = mm_to_steps(y);
     set_motor_target(&x_motor, x);
     set_motor_target(&y_motor, y);
 }
@@ -108,8 +115,8 @@ void goto_well(uint x, uint y) {
 void reset_gantry() {
     DTRACE();
     gantry_resetting = true;
-    set_motor_target(&x_motor, -9999);
-    set_motor_target(&y_motor, -9999);
+    set_motor_target(&x_motor, -999999);
+    set_motor_target(&y_motor, -999999);
 }
 
 void wait_on_gantry_reset() {
