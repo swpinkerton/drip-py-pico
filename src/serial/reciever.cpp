@@ -7,7 +7,7 @@
 
 // --- Configuration ---
 #define UART_ID uart0
-#define PUMP_ID uart1
+#define PUMP_ID uart0
 #define BAUD_RATE 115200 // Make sure this matches Pico 1
 #define PUMP_RATE 19200 // Make sure this matches Pico 1
 
@@ -16,8 +16,8 @@
 #define UART_TX_PIN 0 // Connect this to Pico 1's RX pin
 #define UART_RX_PIN 1 // Connect this to Pico 1's TX pin
 
-#define PUMP_TX_PIN 4 // Connect this to Pico 1's RX pin
-#define PUMP_RX_PIN 5 // Connect this to Pico 1's TX pin
+#define PUMP_TX_PIN 4
+#define PUMP_RX_PIN 5
 // --- End Configuration ---
 
 int main() {
@@ -51,10 +51,10 @@ int main() {
             // Print the received character to the USB serial output
             putchar(ch);
             if (counter == 0){
-                uart_puts(PUMP_ID, "0 RAT 12.3 UM\r");
+                uart_puts(PUMP_ID, "0 DIA 12.3\r");
             }
             if (counter == 1){
-                uart_puts(PUMP_ID, "0 IV500UL\r");
+                uart_puts(PUMP_ID, "0 RAT 1.10 MM\r");
             }
             if (counter == 2){
                 uart_puts(PUMP_ID, "0 RUN\r");
@@ -63,7 +63,7 @@ int main() {
             if (counter == 3){
                 counter = 0;
             }
-            
+
 
             fflush(stdout); // Ensure the character is sent out over USB immediately
         }
