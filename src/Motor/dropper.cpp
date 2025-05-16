@@ -55,7 +55,7 @@ void raise_electrodes() {
 }
 
 DropperState get_dropper_status(DropperType type) {
-    DTRACE();
+    // DTRACE();
     motor_t* motor_in_question;
 
     if (type == DropperType::HOSE) {

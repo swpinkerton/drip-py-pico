@@ -6,6 +6,7 @@
 #include "debug.h"
 #include "hardware/gpio.h"
 #include "dropper.h"
+#include "pico/time.h"
 
 static motor_t x_motor;
 static motor_t y_motor;
@@ -15,6 +16,14 @@ static bool x_reset = false;
 static bool y_reset = false;
 
 static DropperType dropper_mode = DropperType::HOSE;
+
+static absolute_time_t x_motor_timer = {0};
+static absolute_time_t y_motor_timer = {0};
+static const int64_t MOTOR_ISR_DEBOUNCE_US = 6000000; // 4 seconds in microseconds
+
+static bool is_timer_expired(absolute_time_t last_time) {
+    return absolute_time_diff_us(last_time, get_absolute_time()) > MOTOR_ISR_DEBOUNCE_US;
+}
 
 int mm_to_steps(float mm) {
     DTRACE();
@@ -31,12 +40,22 @@ void gantry_isr(uint gpio, uint32_t event) {
     {
     case X_ENDSTOP_PIN:
         DPRINTF_TYPE(DEBUG_ISR, "X Motor ISR\n");
+        if (!is_timer_expired(x_motor_timer)) {
+            DPRINTF_TYPE(DEBUG_ISR, "ISR ignored for debouncing.\n");
+            return;
+        }
+        x_motor_timer = get_absolute_time();
         motor = &x_motor;
         x_reset = true;
         break;
     
     case Y_ENDSTOP_PIN:
         DPRINTF_TYPE(DEBUG_ISR, "Y Motor ISR\n");
+        if (!is_timer_expired(y_motor_timer)) {
+            DPRINTF_TYPE(DEBUG_ISR, "ISR ignored for debouncing.\n");
+            return;
+        }
+        y_motor_timer = get_absolute_time();
         motor = &y_motor;
         y_reset = true;
         break;
@@ -46,6 +65,8 @@ void gantry_isr(uint gpio, uint32_t event) {
         break;
     }
 
+    DPRINTF_TYPE(DEBUG_ISR, "ISR running.\n");
+
     if (x_reset and y_reset) {
         x_reset = false;
         y_reset = false;
@@ -54,9 +75,11 @@ void gantry_isr(uint gpio, uint32_t event) {
 
     LOCK_MOTOR(motor);
     motor->location = 0;
-    motor->target = 0;
     UNLOCK_MOTOR(motor);
     disable_motor(motor);
+
+    // Move the gantry to it is off the endstop switch.
+    set_motor_target(motor, mm_to_steps(2));
 }
 
 void init_gantry() {
@@ -85,6 +108,10 @@ void init_gantry() {
     gpio_set_irq_enabled(Y_ENDSTOP_PIN, GPIO_IRQ_EDGE_FALL, true);
     gpio_pull_up(X_ENDSTOP_PIN);
     gpio_pull_up(Y_ENDSTOP_PIN);
+
+    // Setup timers
+    x_motor_timer = get_absolute_time();
+    y_motor_timer = get_absolute_time();
 }
 
 void move_xy(int x, int y) {
@@ -109,7 +136,7 @@ void move_xy_relative(int x, int y) {
 }
 
 GantryStatus get_gantry_status() {
-    DTRACE();
+    // DTRACE();
     if (x_motor.enabled or y_motor.enabled) {
         return GantryStatus::MOVING;
     } else {
