@@ -104,6 +104,8 @@ void enable_motor(motor_t* motor);
  */
 void set_motor_target(motor_t* motor, int target);
 
+void set_motor_relative_target(motor_t* motor, int delta_steps);
+
 /**
  * @brief Initiliase the motor GPIO and variables
  * 

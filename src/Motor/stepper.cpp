@@ -49,6 +49,9 @@ void stepper_motor_init(motor_t* motor, motor_pins_t pins) {
 
     // Init the mutex
     mutex_init(&motor->lock);
+
+    // Make sure motors are disabled on startup
+    disable_motor(motor);
 }
 
 void enable_motor(motor_t* motor) {
@@ -79,6 +82,35 @@ void set_motor_target(motor_t* motor, int target) {
 
     motor->direction = (int8_t) sign(target - motor->location);
     motor->target = target;
+    motor->next_step_time = to_us_since_boot(get_absolute_time());
+    motor->move_start_time = to_us_since_boot(get_absolute_time());
+    motor->step_counter = 0;
+    
+    // Find the number of steps for acceleration/deceleration
+    uint acceleration_time = motor->target_speed/motor->acceleration;
+    motor->steps_to_accel = motor->acceleration/2 * acceleration_time * acceleration_time;
+
+    UNLOCK_MOTOR(motor);
+
+    enable_motor(motor);
+}
+
+void set_motor_relative_target(motor_t* motor, int delta_steps) {
+    DTRACE();
+    LOCK_MOTOR(motor);
+
+    if (delta_steps == 0) {
+        // No move
+        UNLOCK_MOTOR(motor);
+        return;
+    }
+
+    int new_target = motor->target + delta_steps;
+
+    if (new_target < 0) new_target = 0;
+
+    motor->direction = (int8_t) sign(new_target - motor->location);
+    motor->target = new_target;
     motor->next_step_time = to_us_since_boot(get_absolute_time());
     motor->move_start_time = to_us_since_boot(get_absolute_time());
     motor->step_counter = 0;

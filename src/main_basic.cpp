@@ -22,9 +22,9 @@ int main() {
 
     printf("Core 0 Started...\n");
 
-    // while(1) {
-    //     DPRINTF_TYPE(BALLS, "balls2\n");
-    // }
+    while(1) {
+        DPRINTF_TYPE(BALLS, "balls2\n");
+    }
 
     init_gantry();
     init_dropper();
@@ -44,9 +44,9 @@ int main() {
         sleep_ms(3000);
         goto_well(5,0);
         sleep_ms(3000);
-        // move_xy(20, 20);
-        // sleep_ms(6000);
-        // move_xy(0,0);
-        // sleep_ms(6000);
+        move_xy(20, 20);
+        sleep_ms(6000);
+        move_xy(0,0);
+        sleep_ms(6000);
     }   
 }

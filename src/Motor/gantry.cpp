@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "debug.h"
 #include "hardware/gpio.h"
+#include "dropper.h"
 
 static motor_t x_motor;
 static motor_t y_motor;
@@ -13,10 +14,12 @@ static bool gantry_resetting = false;
 static bool x_reset = false;
 static bool y_reset = false;
 
+static DropperType dropper_mode = DropperType::HOSE;
+
 int mm_to_steps(float mm) {
     DTRACE();
     float x_revolutions = mm / GANTRY_THREAD_PITCH_MM;
-    return static_cast<int>(x_revolutions * GANTRY_STEPS_PER_REVOLUTION * MICROSTEPS);
+    return static_cast<int>(x_revolutions * GANTRY_STEPS_PER_REVOLUTION);
 }
 
 void gantry_isr(uint gpio, uint32_t event) {
@@ -94,6 +97,17 @@ void move_xy(int x, int y) {
     set_motor_target(&y_motor, y);
 }
 
+void move_xy_relative(int x, int y) {
+    DTRACE();
+    set_motor_target_rpm(GANTRY_STEPS_PER_REVOLUTION, GANTRY_MAX_RPM, &x_motor);
+    set_motor_target_rpm(GANTRY_STEPS_PER_REVOLUTION, GANTRY_MAX_RPM, &y_motor);
+    x = mm_to_steps(x);
+    y = mm_to_steps(y);
+    set_motor_relative_target(&x_motor, x);
+    set_motor_relative_target(&y_motor, y);
+    
+}
+
 GantryStatus get_gantry_status() {
     DTRACE();
     if (x_motor.enabled or y_motor.enabled) {
@@ -104,18 +118,57 @@ GantryStatus get_gantry_status() {
 }
 
 void goto_well(uint x, uint y) {
+    DTRACE();
     // Clamp x and y to max number of wells
-    if (x > 8) {
-        x = 8;
+    if (x > 7) {
+        x = 7;
     }
-    if (y > 3) {
-        y = 3;
+    if (y > 2) {
+        y = 2;
     }
 
     int x_distance = x * WELL_SPACING + WELL_HOME_X;
     int y_distance = y * WELL_SPACING + WELL_HOME_Y;
 
+    switch (dropper_mode)
+    {
+    case DropperType::HOSE:
+        x_distance += HOSE_OFFSET_X;
+        y_distance += HOSE_OFFSET_Y;
+        break;
+
+    case DropperType::ELECTRODES:
+        x_distance += ELECTRODES_OFFSET_X;
+        y_distance += ELECTRODES_OFFSET_Y;
+        break;
+    
+    default:
+        break;
+    }
+
     move_xy(x_distance, y_distance);
+}
+
+void set_gantry_mode(DropperType mode) {
+    DTRACE();
+    
+    if (dropper_mode == mode) {
+        // Already in the right mode, do nothing.
+        return;
+    }
+    
+    dropper_mode = mode;
+
+    switch (dropper_mode)
+    {
+    case DropperType::HOSE:
+        move_xy_relative(HOSE_OFFSET_X - ELECTRODES_OFFSET_X, HOSE_OFFSET_Y - ELECTRODES_OFFSET_Y);
+        break;
+    
+    case DropperType::ELECTRODES:
+        move_xy_relative(ELECTRODES_OFFSET_X - HOSE_OFFSET_X, ELECTRODES_OFFSET_Y - HOSE_OFFSET_Y);
+        break;
+    }
 }
 
 void reset_gantry() {

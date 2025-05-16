@@ -1,4 +1,5 @@
 #include "stepper.h"
+#include "dropper.h"
 
 /**
  * @brief Gantry status
@@ -22,6 +23,8 @@ void init_gantry();
  * @param y y distance in mm
  */
 void move_xy(int x, int y);
+
+void move_xy_relative(int x, int y);
 
 /**
  * @brief Get the status of the Gantry
@@ -49,3 +52,5 @@ void reset_gantry();
  * 
  */
 void wait_on_gantry_reset();
+
+void set_gantry_mode(DropperType mode);

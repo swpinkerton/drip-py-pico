@@ -58,6 +58,7 @@ void motor_control_loop() {
             if (motor->enabled) {
                 // Safety check if motor is already at target, disable it.
                 if (motor->location == motor->target) {
+                    DPRINTF_TYPE(DEBUG_MOTOR, "Target Reached, disabling motor.\n");
                     UNLOCK_MOTOR(motor);
                     disable_motor(motor);
                     LOCK_MOTOR(motor);

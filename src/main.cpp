@@ -48,7 +48,7 @@ bool gantry_move_is_legal() {
     DropperState hose_state = get_dropper_status(DropperType::HOSE);
     DropperState electrodes_state = get_dropper_status(DropperType::ELECTRODES);
 
-    if (hose_state != DropperState::UP and electrodes_state != DropperState::UP) {
+    if (hose_state != DropperState::UP or electrodes_state != DropperState::UP) {
         DWARNING("Gantry cannot move while one or more droppers are not fully up.\n");
         return false;
     }
@@ -68,7 +68,7 @@ bool dropper_move_is_legal() {
     return false;
 }
 
-int process_command(string command, Component& active_component) {
+int process_command(string command, Component& active_component, DropperType& dropper_mode) {
     DTRACE();
     stringstream ss(command);
     string cmd;
@@ -112,9 +112,64 @@ int process_command(string command, Component& active_component) {
     {
         DSTATUS("DROP command received\n");
 
+        if (!dropper_move_is_legal()) {
+            return 0;
+        }
+
+        if (dropper_mode == DropperType::HOSE) {
+            drop_hose();
+            active_component = Component::HOSE;
+            DSTATUS("Dropping hose\n");
+        } else {
+            drop_electrodes();
+            active_component = Component::ELECTODES;
+            DSTATUS("Dropping electrodes\n");
+        }
+        return 1;
+
     } else if (cmd == "RAISE")
     {
         DSTATUS("RAISE command received\n");
+
+        if (!dropper_move_is_legal()) {
+            return 0;
+        }
+
+        if (dropper_mode == DropperType::HOSE) {
+            raise_hose();
+            active_component = Component::HOSE;
+            DSTATUS("Raising hose\n");
+        } else {
+            raise_electrodes();
+            active_component = Component::ELECTODES;
+            DSTATUS("Raising electrodes\n");
+        }
+        return 1;
+
+    } else if (cmd == "SET_MODE") 
+    {
+        string mode;
+
+        if (ss >> mode) {
+            if (mode == "HOSE") {
+                DSTATUS("Setting mode to HOSE\n");
+                dropper_mode = DropperType::HOSE;
+            } else if (mode == "ELECTRODES") {
+                DSTATUS("Setting mode to ELECTRODES\n");
+                dropper_mode = DropperType::ELECTRODES;
+            } else {
+                DWARNING("Invalid argument for SET_MODE command.\n");
+                return 0;
+            }
+
+            set_gantry_mode(dropper_mode);
+            active_component = Component::GANTRY;
+            return 1;
+        }
+
+        DWARNING("Invalid argument for SET_MODE command.\n");
+
+        return 0;
 
     } else if (cmd == "ZERO")
     {
@@ -134,9 +189,6 @@ int process_command(string command, Component& active_component) {
             active_component = Component::GANTRY;
             return 1;
         }
-    } else if (cmd == "GET_STATUS")
-    {
-
     } else if (cmd == "STOP") 
     {
         printf("STOP command received.\n");
@@ -169,6 +221,8 @@ int main() {
     queue<string> command_queue;
     string input_buffer;
 
+    DropperType dropper_mode = DropperType::HOSE;
+
     while(1) {
         // Check for new input
         int c = getchar_timeout_us(0);
@@ -176,7 +230,7 @@ int main() {
         if (c != PICO_ERROR_TIMEOUT and c != '\r') {
             if (c == '\n') {
                 // Command read finished, process it.
-                if (process_command(input_buffer, active_component)) {
+                if (process_command(input_buffer, active_component, dropper_mode)) {
                     DSTATUS("Running Command\n");
                     state = State::RUNNING_COMMAND;
                     current_command_string = input_buffer;
@@ -194,6 +248,22 @@ int main() {
             {
             case Component::GANTRY:
                 if (get_gantry_status() == GantryStatus::STOPPED) {
+                    state = State::IDLE;
+                    send_command_complete_response(current_command_string);
+                    current_command_string = "";
+                }
+                break;
+            
+            case Component::HOSE:
+                if (get_dropper_status(DropperType::HOSE) != DropperState::MOVING) {
+                    state = State::IDLE;
+                    send_command_complete_response(current_command_string);
+                    current_command_string = "";
+                }
+                break;
+            
+            case Component::ELECTODES:
+                if (get_dropper_status(DropperType::ELECTRODES) != DropperState::MOVING) {
                     state = State::IDLE;
                     send_command_complete_response(current_command_string);
                     current_command_string = "";
