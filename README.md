@@ -1,4 +1,9 @@
-# pico-cpp
+# Miniaturised Pipetting and Electrostimulation
+![image](https://github.com/user-attachments/assets/5efe55c7-9b72-4662-9c70-7520681d289c)
+
+This repo has the code for a project to create the worlds smallest pipetting and electrostimulation robot.
+
+## pico-cpp
 Instructions and project based on https://github.com/tttapa/pico-cpp/tree/main
 
 Bare minimum C++ project using the Raspberry Pi Pico SDK.
