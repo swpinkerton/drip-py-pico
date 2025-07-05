@@ -1,112 +1,278 @@
+#include "debug.h"
 #include <stdio.h>
-
+#include "pico/stdlib.h"
+#include "pico/stdio.h"
+#include "pico/multicore.h"
 #include "hardware/gpio.h"
-#include <pico/stdlib.h>
-#include <pico/time.h>
+#include "hardware/irq.h"
+#include "hardware/uart.h"
+#include "gantry.h"
+#include "dropper.h"
+#include "controller.h"
+#include "stepper.h"
+#include <vector>
+#include <queue>
+#include <string>
+#include <sstream>
 
-#include "cell.hpp"
-#include "grid.hpp"
-#include "input_state.cpp"
-#include "input_interface.hpp"
+using std::queue;
+using std::string;
+using std::stringstream;
+using std::vector;
 
-#include "FreeRTOS.h"
-#include "FreeRTOSConfig.h"
-#include "task.h"
-
-#define LED_PIN 25
-#define RED_LED 14
-
-#define GPIO_ON     1
-#define GPIO_OFF    0
-
-// TODO: add a task to handle the electro stim
-//      - task notification trigered via the coms
-//      - mutex the electrostim information? - if we are parallel
-
-// TODO: add a scheduleing task to handle the current position and next positions
-//      - is toggled on/off via a task notification (or something similiar) from the comms
-//      - mutex the grid? - if we are parallel
-//      - needs to recalabrate the motors every now and then and default to recalibration when nothing is occuring
-//      - dispatches the motors (shared information and possibly a task notif?)
-
-// TODO: add a task to hand the motors
-//      - either the motors triggers a task to dispatch the liquid or they are in the same task (I prefer the later)
-
-// TODO: add the ability for the user to bin, maybe have a start up process with liquid perging
-//      - does the bin need a full warning?
-
-void GreenLEDTask(void *)
-{
-    while (1){
-        gpio_put(LED_PIN, GPIO_ON);
-        vTaskDelay(1000);
-        gpio_put(LED_PIN, GPIO_OFF);
-        vTaskDelay(1000);
-    }
+void core1_entry() {
+    motor_control_loop();
 }
 
-void RedLEDTask(void *)
-{
-    while (1){
-        gpio_put(RED_LED, GPIO_ON);
-        vTaskDelay(1000);
-        gpio_put(RED_LED, GPIO_OFF);
-        vTaskDelay(1000);
+enum class CommandReadState {
+    WAITING,
+    COMMAND,
+    ARGUMENTS
+};
+
+enum class Component {
+    GANTRY,
+    HOSE,
+    ELECTODES,
+    NONE,
+    ERROR
+};
+
+enum class State {
+    IDLE,
+    RUNNING_COMMAND
+};
+
+bool gantry_move_is_legal() {
+    DTRACE();
+    DropperState hose_state = get_dropper_status(DropperType::HOSE);
+    DropperState electrodes_state = get_dropper_status(DropperType::ELECTRODES);
+
+    if (hose_state != DropperState::UP or electrodes_state != DropperState::UP) {
+        DWARNING("Gantry cannot move while one or more droppers are not fully up.\n");
+        return false;
     }
+
+    return true;
+}
+
+bool dropper_move_is_legal() {
+    DTRACE();
+    GantryStatus state = get_gantry_status();
+
+    if (state == GantryStatus::STOPPED) {
+        return true;
+    }
+
+    DWARNING("Droppers cannot move unless gantry is stationary.\n");
+    return false;
+}
+
+int process_command(string command, Component& active_component, DropperType& dropper_mode) {
+    DTRACE();
+    stringstream ss(command);
+    string cmd;
+    ss >> cmd;
+
+    if (cmd.empty()) {
+        printf("Empty command received.\n");
+        return 0;
+    }
+
+    if (cmd == "GOTO_WELL") 
+    {
+        if (!gantry_move_is_legal()) {
+            return 0;
+        }
+
+        int x, y;
+        if (ss >> x >> y) {
+            DSTATUS("GOTO_WELL %d %d command received\n", x, y);
+            goto_well(x, y);
+            active_component = Component::GANTRY;
+            return 1;
+        } else {
+            DWARNING("Bad arguments for GOTO_WELL command\n");
+        }
+    } else if (cmd == "MOVE")
+    {
+        if (!gantry_move_is_legal()) {
+            return 0;
+        }
+        
+        int x, y;
+        if (ss >> x >> y) {
+            DSTATUS("MOVE %d %d command received\n", x, y);
+            move_xy(x, y);
+            active_component = Component::GANTRY;
+        } else {
+            DWARNING("Bad arguments for MOVE command\n");
+        }
+    } else if (cmd == "DROP")
+    {
+        DSTATUS("DROP command received\n");
+
+        if (!dropper_move_is_legal()) {
+            return 0;
+        }
+
+        if (dropper_mode == DropperType::HOSE) {
+            drop_hose();
+            active_component = Component::HOSE;
+            DSTATUS("Dropping hose\n");
+        } else {
+            drop_electrodes();
+            active_component = Component::ELECTODES;
+            DSTATUS("Dropping electrodes\n");
+        }
+        return 1;
+
+    } else if (cmd == "RAISE")
+    {
+        DSTATUS("RAISE command received\n");
+
+        if (!dropper_move_is_legal()) {
+            return 0;
+        }
+
+        if (dropper_mode == DropperType::HOSE) {
+            raise_hose();
+            active_component = Component::HOSE;
+            DSTATUS("Raising hose\n");
+        } else {
+            raise_electrodes();
+            active_component = Component::ELECTODES;
+            DSTATUS("Raising electrodes\n");
+        }
+        return 1;
+
+    } else if (cmd == "SET_MODE") 
+    {
+        string mode;
+
+        if (ss >> mode) {
+            if (mode == "HOSE") {
+                DSTATUS("Setting mode to HOSE\n");
+                dropper_mode = DropperType::HOSE;
+            } else if (mode == "ELECTRODES") {
+                DSTATUS("Setting mode to ELECTRODES\n");
+                dropper_mode = DropperType::ELECTRODES;
+            } else {
+                DWARNING("Invalid argument for SET_MODE command.\n");
+                return 0;
+            }
+
+            set_gantry_mode(dropper_mode);
+            active_component = Component::GANTRY;
+            return 1;
+        }
+
+        DWARNING("Invalid argument for SET_MODE command.\n");
+
+        return 0;
+
+    } else if (cmd == "ZERO")
+    {
+        string component;
+        if (!(ss >> component)) {
+            DWARNING("Bad arguments for ZERO command\n");
+            return 0;
+        }
+        DSTATUS("ZERO %s command received\n", component.c_str());
+
+        if (component == "GANTRY") {
+            if (!gantry_move_is_legal()) {
+                return 0;
+            }
+
+            reset_gantry();
+            active_component = Component::GANTRY;
+            return 1;
+        }
+    } else if (cmd == "STOP") 
+    {
+        printf("STOP command received.\n");
+        stop_motors();
+    } else {
+        printf("Unknown command: %s\n", cmd.c_str());
+    }
+    return 0;
+}
+
+void send_command_complete_response(string command) {
+    DSTATUS("Command \"%s\"complete\n", command.c_str());
+    printf("COMMAND COMPLETE: %s\n", command.c_str());
 }
 
 int main() {
     stdio_init_all();
 
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
+    printf("Core 0 Started...\n");
 
-    gpio_init(RED_LED);
-    gpio_set_dir(RED_LED, GPIO_OUT);
+    init_gantry();
+    init_dropper();
 
-    Grid grid = Grid(3, 8);
-    InputState input_state = InputState::root;
+    multicore_launch_core1(core1_entry);
 
-    char c = '0';
-    while (c != ' ' && c != '\n' && c != '\r'){
-        c = getchar();
-        sleep_ms(10);
-        PrintWelcome();
+    State state = State::IDLE;
+    string current_command_string;
+    Component active_component = Component::NONE;
+
+    queue<string> command_queue;
+    string input_buffer;
+
+    DropperType dropper_mode = DropperType::HOSE;
+
+    while(1) {
+        // Check for new input
+        int c = getchar_timeout_us(0);
+
+        if (c != PICO_ERROR_TIMEOUT and c != '\r') {
+            if (c == '\n') {
+                // Command read finished, process it.
+                if (process_command(input_buffer, active_component, dropper_mode)) {
+                    DSTATUS("Running Command\n");
+                    state = State::RUNNING_COMMAND;
+                    current_command_string = input_buffer;
+                } else {
+                    DWARNING("Process command failed\n");
+                }
+                input_buffer.clear();
+            } else {
+                input_buffer += c;
+            }
+        }
+
+        if (state == State::RUNNING_COMMAND) {
+            switch (active_component)
+            {
+            case Component::GANTRY:
+                if (get_gantry_status() == GantryStatus::STOPPED) {
+                    state = State::IDLE;
+                    send_command_complete_response(current_command_string);
+                    current_command_string = "";
+                }
+                break;
+            
+            case Component::HOSE:
+                if (get_dropper_status(DropperType::HOSE) != DropperState::MOVING) {
+                    state = State::IDLE;
+                    send_command_complete_response(current_command_string);
+                    current_command_string = "";
+                }
+                break;
+            
+            case Component::ELECTODES:
+                if (get_dropper_status(DropperType::ELECTRODES) != DropperState::MOVING) {
+                    state = State::IDLE;
+                    send_command_complete_response(current_command_string);
+                    current_command_string = "";
+                }
+                break;
+            
+            default:
+                break;
+            }
+        }
     }
-    output_grid(&input_state, &grid);
-
-    TaskHandle_t serial_task = NULL;
-    TaskHandle_t rLEDtask = NULL;
-    TaskHandle_t gLEDtask = NULL;
-
-    StateGrid sg = {&input_state, &grid};
-
-    xTaskCreate(
-        processKeyPress,
-        "serial",
-        2048,
-        &sg,
-        tskIDLE_PRIORITY,
-        &serial_task
-    );
-
-    xTaskCreate(
-        RedLEDTask,
-        "Red LED",
-        1024,
-        NULL,
-        1,
-        &rLEDtask
-    );
-
-    xTaskCreate(
-        GreenLEDTask,
-        "Green LED",
-        1024,
-        NULL,
-        2,
-        &gLEDtask
-    );
-
-    vTaskStartScheduler();
 }

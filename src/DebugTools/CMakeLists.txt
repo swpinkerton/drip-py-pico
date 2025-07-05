@@ -1,0 +1,2 @@
+add_library(debug_tools debug.cpp)
+target_link_libraries(debug_tools pico_stdlib)
